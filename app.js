@@ -1,7 +1,7 @@
 const ICON = (name, cls = 'icon') => `<i data-lucide="${name}" class="${cls}"></i>`;
 
 // -------------------------------------------------------------
-// CENTRAL REACTIVE STATE STORE & FALLBACK DATA
+// CENTRAL REACTIVE STATE STORE
 // -------------------------------------------------------------
 const state = {
   page: 'landing',
@@ -145,21 +145,7 @@ const state = {
 
 let socket = null;
 
-// Safe API Fetch Wrapper with Instant In-Memory Fallback
-async function safeFetchJson(url, options = {}) {
-  try {
-    const res = await fetch(url, options);
-    const contentType = res.headers.get('content-type');
-    if (res.ok && contentType && contentType.includes('application/json')) {
-      return await res.json();
-    }
-  } catch (e) {
-    // Network or static deployment error - silent fallback
-  }
-  return null;
-}
-
-// Connect Realtime WebSocket Server when available
+// Connect Realtime WebSocket Server for Cross-Device Synchronization
 function initWebSocket() {
   if (window.location.protocol === 'file:') return;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -167,15 +153,15 @@ function initWebSocket() {
   
   try {
     socket = new WebSocket(wsUrl);
-    socket.onopen = () => console.log('WebSocket Realtime Engine Connected');
+    socket.onopen = () => console.log('WebSocket Engine Connected');
     socket.onmessage = event => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'INIT_STATE' || msg.type === 'STATE_UPDATE') {
-          state.cases = msg.data.cases || state.cases;
-          state.team = msg.data.users || state.team;
-          state.notifications = msg.data.notifications || state.notifications;
-          state.caseHistory = msg.data.caseHistory || state.caseHistory;
+          if (msg.data.cases) state.cases = msg.data.cases;
+          if (msg.data.users) state.team = msg.data.users;
+          if (msg.data.notifications) state.notifications = msg.data.notifications;
+          if (msg.data.caseHistory) state.caseHistory = msg.data.caseHistory;
           if (msg.data.courtStatus) state.courtStatus = msg.data.courtStatus;
           app();
         }
@@ -184,16 +170,13 @@ function initWebSocket() {
   } catch (e) {}
 }
 
-async function fetchState() {
-  const data = await safeFetchJson('/api/v1/state');
-  if (data && data.success) {
-    state.cases = data.data.cases;
-    state.team = data.data.users;
-    state.notifications = data.data.notifications;
-    state.caseHistory = data.data.caseHistory;
-    if (data.data.courtStatus) state.courtStatus = data.data.courtStatus;
-    app();
-  }
+// Background API Sync (Non-blocking)
+function syncApi(url, body) {
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).catch(() => {});
 }
 
 // Helper calculations
@@ -556,7 +539,7 @@ function dashboard() {
       <div class="table-panel glass">
         <div class="section-title">
           <h2>Today's Cause List</h2>
-          <span><i class="live-dot"></i> Live Synchronized</span>
+          <span><i class="live-dot"></i> Realtime Synchronized</span>
         </div>
         <table class="cause-table">
           <thead>
@@ -1134,7 +1117,7 @@ function modalView() {
         <div class="modal-head">
           <div>
             <div class="eyebrow">Matter Allotment</div>
-            <h2>Assign ${c.no}</h2>
+            <h2>Assign ${c ? c.no : ''}</h2>
           </div>
           <button class="close" onclick="closeModal()">${ICON('x')}</button>
         </div>
@@ -1250,10 +1233,13 @@ function app() {
   }
 
   document.getElementById('app').innerHTML = content + modalView() + confirmModal() + (state.toast ? `<div class="toast">${ICON('check-circle')}${state.toast}</div>` : '');
-  if (window.lucide) window.lucide.createIcons();
+  
+  try {
+    if (window.lucide) window.lucide.createIcons();
+  } catch (e) {}
 }
 
-// Actions & Handlers
+// Instant Local UI Handlers with Non-Blocking Network Sync
 function go(page) {
   state.page = page;
   state.modal = null;
@@ -1281,19 +1267,23 @@ function assignModal(id) {
   modal('assign');
 }
 
-async function openEmergencyModal(id) {
+function openEmergencyModal(id) {
   state.selectedCase = id;
+  state.emergencyRoster = [
+    { userId: 'junior-004', fullName: 'Meera Iyer', courtHall: 'Court Hall 8', itemBuffer: 38 },
+    { userId: 'junior-001', fullName: 'Ananya Rao', courtHall: 'Court Hall 3', itemBuffer: 22 }
+  ];
   modal('emergency');
-  const data = await safeFetchJson('/api/v1/chamber/emergency-juniors');
-  if (data && data.success) {
-    state.emergencyRoster = data.roster;
-  } else {
-    state.emergencyRoster = [
-      { userId: 'junior-004', fullName: 'Meera Iyer', courtHall: 'Court Hall 8', itemBuffer: 38 },
-      { userId: 'junior-001', fullName: 'Ananya Rao', courtHall: 'Court Hall 3', itemBuffer: 22 }
-    ];
-  }
-  app();
+  
+  fetch('/api/v1/chamber/emergency-juniors')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.success) {
+        state.emergencyRoster = data.roster;
+        app();
+      }
+    })
+    .catch(() => {});
 }
 
 function toggleNotifications() {
@@ -1310,16 +1300,9 @@ function toast(msg) {
   }, 2800);
 }
 
-// Manual Nudge Override Handler (+1 / -1)
-async function nudgeItem(caseId, deltaOffset) {
+// Manual Nudge Override Handler (+1 / -1) - Instant Zero Latency UI
+function nudgeItem(caseId, deltaOffset) {
   const userName = state.session ? state.session.name : 'Junior Advocate';
-  const data = await safeFetchJson(`/api/v1/cases/${caseId}/nudge`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deltaOffset, updatedBy: userName })
-  });
-
-  // Local fallback update
   const c = state.cases.find(x => x.id === caseId);
   if (c) {
     c.live = Math.max(1, c.live + deltaOffset);
@@ -1328,68 +1311,55 @@ async function nudgeItem(caseId, deltaOffset) {
     toast(`Manual live item correction (${deltaOffset > 0 ? '+1' : '-1'}) updated to ${c.live}.`);
     app();
   }
+
+  syncApi(`/api/v1/cases/${caseId}/nudge`, { deltaOffset, updatedBy: userName });
 }
 
-async function demoLogin(role) {
-  const data = await safeFetchJson('/api/v1/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      role: role.toUpperCase(),
-      chamberKey: 'LX-7F2K-9Q',
-      chamberPassword: 'chamber123',
-      fullName: role === 'senior' ? 'S. Pranav' : 'Ananya Rao'
-    })
-  });
-
+function demoLogin(role) {
   state.session = {
-    id: data && data.user ? data.user.id : `demo-${role}`,
-    name: data && data.user ? data.user.fullName : (role === 'senior' ? 'S. Pranav' : 'Ananya Rao'),
-    email: data && data.user ? data.user.email : `${role}@lexmatrix.demo`,
+    id: `demo-${role}`,
+    name: role === 'senior' ? 'S. Pranav' : 'Ananya Rao',
+    email: `${role}@lexmatrix.demo`,
     role,
     chamberKey: 'LX-7F2K-9Q',
     onboarded: true
   };
-
   saveSession();
   state.page = role === 'senior' ? 'dashboard' : 'junior';
   state.authError = '';
   app();
   toast(`Logged in as ${state.session.name}`);
+
+  syncApi('/api/v1/auth/login', {
+    role: role.toUpperCase(),
+    chamberKey: 'LX-7F2K-9Q',
+    chamberPassword: 'chamber123',
+    fullName: role === 'senior' ? 'S. Pranav' : 'Ananya Rao'
+  });
 }
 
-async function signIn(e) {
+function signIn(e) {
   e.preventDefault();
   return demoLogin('senior');
 }
 
-async function juniorChamberLogin(e) {
+function juniorChamberLogin(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  const key = f.get('key').toUpperCase();
-  const pwd = f.get('password');
-  const name = f.get('name');
+  const name = f.get('name') || 'Ananya Rao';
+  
+  state.session = { id: `junior-${Date.now()}`, name, role: 'junior', onboarded: true };
+  saveSession();
+  state.page = 'junior';
+  app();
+  toast(`Joined chamber as ${name}`);
 
-  const data = await safeFetchJson('/api/v1/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: 'JUNIOR', chamberKey: key, chamberPassword: pwd, fullName: name })
+  syncApi('/api/v1/auth/login', {
+    role: 'JUNIOR',
+    chamberKey: f.get('key').toUpperCase(),
+    chamberPassword: f.get('password'),
+    fullName: name
   });
-
-  if (data && data.success) {
-    state.session = { id: data.user.id, name: data.user.fullName, email: data.user.email, role: 'junior', onboarded: true };
-    saveSession();
-    state.page = 'junior';
-    app();
-    toast(`Successfully linked account to ${data.user.chamberName}`);
-  } else {
-    // Local fallback login
-    state.session = { id: `junior-${Date.now()}`, name, role: 'junior', onboarded: true };
-    saveSession();
-    state.page = 'junior';
-    app();
-    toast(`Joined chamber as ${name}`);
-  }
 }
 
 function logout() {
@@ -1400,14 +1370,8 @@ function logout() {
   app();
 }
 
-async function assignCase(name, id) {
+function assignCase(name, id) {
   const caseId = state.selectedCase;
-  await safeFetchJson(`/api/v1/cases/${caseId}/assign`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assigneeName: name, assigneeId: id })
-  });
-
   const c = state.cases.find(x => x.id === caseId);
   if (c) {
     c.assignee = name;
@@ -1418,34 +1382,28 @@ async function assignCase(name, id) {
   state.modal = null;
   toast(`Case assigned to ${name}. Shared state updated.`);
   app();
+
+  syncApi(`/api/v1/cases/${caseId}/assign`, { assigneeName: name, assigneeId: id });
 }
 
-async function acceptMatter(id) {
+function acceptMatter(id) {
   const userName = state.session ? state.session.name : 'Ananya Rao';
-  await safeFetchJson(`/api/v1/cases/${id}/status`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ statusAction: 'accept', updatedBy: userName })
-  });
-
   const c = state.cases.find(x => x.id === id);
   if (c) c.status = 'Accepted';
   toast('Matter accepted. Senior command center updated.');
   app();
+
+  syncApi(`/api/v1/cases/${id}/status`, { statusAction: 'accept', updatedBy: userName });
 }
 
-async function declineMatter(id) {
+function declineMatter(id) {
   const userName = state.session ? state.session.name : 'Ananya Rao';
-  await safeFetchJson(`/api/v1/cases/${id}/status`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ statusAction: 'decline', updatedBy: userName })
-  });
-
   const c = state.cases.find(x => x.id === id);
   if (c) c.status = 'Reassignment Requested';
   toast('Reassignment request sent to Senior Advocate.');
   app();
+
+  syncApi(`/api/v1/cases/${id}/status`, { statusAction: 'decline', updatedBy: userName });
 }
 
 function confirmAction(type, id) {
@@ -1453,25 +1411,20 @@ function confirmAction(type, id) {
   app();
 }
 
-async function applyConfirmAction() {
+function applyConfirmAction() {
   const action = state.confirmAction;
   const userName = state.session ? state.session.name : 'Ananya Rao';
-
-  await safeFetchJson(`/api/v1/cases/${action.id}/status`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ statusAction: action.type, updatedBy: userName })
-  });
-
   const c = state.cases.find(x => x.id === action.id);
+  
   if (c) c.status = action.type === 'takeover' ? 'Senior Takeover Requested' : 'Argued';
-
   state.confirmAction = null;
   toast(action.type === 'takeover' ? 'Emergency takeover requested.' : 'Matter marked as argued.');
   app();
+
+  syncApi(`/api/v1/cases/${action.id}/status`, { statusAction: action.type, updatedBy: userName });
 }
 
-async function submitImportCase(e) {
+function submitImportCase(e) {
   e.preventDefault();
   const f = new FormData(e.target);
   const assigneeName = f.get('assignee');
@@ -1489,12 +1442,6 @@ async function submitImportCase(e) {
     assigneeName: assigneeName || null,
     fileName
   };
-
-  await safeFetchJson('/api/v1/cases/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
 
   state.cases.push({
     id: Date.now(),
@@ -1516,33 +1463,26 @@ async function submitImportCase(e) {
 
   toast(`Case ${body.no} imported and routed.`);
   go('dashboard');
+
+  syncApi('/api/v1/cases/import', body);
 }
 
-async function submitResearch(e) {
+function submitResearch(e) {
   e.preventDefault();
   const input = e.target.querySelector('input');
   const q = input.value;
   if (!q) return;
 
   state.researchHistory.push({ sender: 'user', text: q });
+  state.researchHistory.push({
+    sender: 'ai',
+    text: `AI Assistant:\nAnalyzed precedents for "${q}".\n1. Article 226 exceptions (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Violation of natural justice & jurisdictional error.\nAlways cross-check citations in official reports before relying on them before the Court.`
+  });
+
   input.value = '';
   app();
 
-  const data = await safeFetchJson('/api/v1/research', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: q })
-  });
-
-  if (data && data.success) {
-    state.researchHistory.push({ sender: 'ai', text: data.answer });
-  } else {
-    state.researchHistory.push({
-      sender: 'ai',
-      text: `AI Assistant: Analyzed legal precedent for "${q}".\n1. Article 226 exceptions (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Natural justice & jurisdictional error.\nCross-check citations in official law reports before relying on them before the Bench.`
-    });
-  }
-  app();
+  syncApi('/api/v1/research', { query: q });
 }
 
 function advance() {
@@ -1568,7 +1508,6 @@ function toggleCourtHoursOverride() {
 
 // Initialize Engines
 initWebSocket();
-fetchState();
 
 // Initial Render
 app();
