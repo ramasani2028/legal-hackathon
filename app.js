@@ -1,7 +1,7 @@
 const ICON = (name, cls = 'icon') => `<i data-lucide="${name}" class="${cls}"></i>`;
 
 // -------------------------------------------------------------
-// CORE SHARED APPLICATION STATE LAYER
+// CENTRAL APPLICATION STATE & WEBSOCKET REALTIME SYNC
 // -------------------------------------------------------------
 const state = {
   page: 'landing',
@@ -14,130 +14,83 @@ const state = {
   teamFound: false,
   confirmAction: null,
   selectedCase: 1,
-  simSpeed: 'normal', // 'normal' | 'fast' | 'demo'
+  simSpeed: 'normal',
   audioEnabled: true,
+  emergencyRoster: [],
   
   session: JSON.parse(sessionStorage.getItem('lexmatrix-session') || 'null'),
   
-  // Shared Cases State
-  cases: [
-    {
-      id: 1,
-      no: 'WP(C) 4521/2026',
-      parties: 'Aarav Estates Pvt. Ltd. v. Union of India',
-      court: 'Delhi High Court',
-      bench: 'Justice Mehta',
-      hall: 'Court Hall 3',
-      item: 60,
-      live: 56,
-      eta: '~4 min',
-      assignee: null,
-      assigneeId: null,
-      status: 'Unassigned',
-      passoverRisk: 'Moderate',
-      walkTime: '3 mins',
-      notes: 'Urgent stay application against administrative demolition notice.'
-    },
-    {
-      id: 2,
-      no: 'COMIP 182/2026',
-      parties: 'Mosaic Foods Ltd. v. Pristine Foods',
-      court: 'Bombay High Court',
-      bench: 'Justice Kulkarni',
-      hall: 'Court Hall 7',
-      item: 36,
-      live: 31,
-      eta: '~8 min',
-      assignee: 'Rahul Sharma',
-      assigneeId: 'junior-002',
-      status: 'Accepted',
-      passoverRisk: 'Low',
-      walkTime: '5 mins',
-      notes: 'Trademark infringement ex-parte ad-interim injunction.'
-    },
-    {
-      id: 3,
-      no: 'WP 8421/2026',
-      parties: 'Nandini Rao v. State of Karnataka',
-      court: 'Karnataka High Court',
-      bench: 'Justice Rao',
-      hall: 'Court Hall 2',
-      item: 48,
-      live: 17,
-      eta: '~45 min',
-      assignee: 'Senior Advocate',
-      assigneeId: 'senior-001',
-      status: 'Self-attend',
-      passoverRisk: 'Low',
-      walkTime: '2 mins',
-      notes: 'Public interest litigation regarding environmental clearance.'
-    },
-    {
-      id: 4,
-      no: 'FAO 231/2026',
-      parties: 'Dutta Infrastructure v. Kolkata Municipal Corp.',
-      court: 'Calcutta High Court',
-      bench: 'Division Bench',
-      hall: 'Court Hall 5',
-      item: 25,
-      live: 14,
-      eta: '~18 min',
-      assignee: 'Karan Mehta',
-      assigneeId: 'junior-003',
-      status: 'Accepted',
-      passoverRisk: 'High',
-      walkTime: '6 mins',
-      notes: 'Appeal against commercial arbitration award stay.'
-    },
-    {
-      id: 5,
-      no: 'CRL.M.C. 1182/2026',
-      parties: 'Rohan Bhatia v. State (NCT Delhi)',
-      court: 'Delhi High Court',
-      bench: 'Justice Sethi',
-      hall: 'Court Hall 9',
-      item: 72,
-      live: 45,
-      eta: '~40 min',
-      assignee: null,
-      assigneeId: null,
-      status: 'Unassigned',
-      passoverRisk: 'Low',
-      walkTime: '4 mins',
-      notes: 'Quashing of FIR under Section 482 CrPC.'
-    }
-  ],
-
-  // Shared Team State
-  team: [
-    { id: 'junior-001', name: 'Ananya Rao', available: true, active: 0, initials: 'AR', role: 'Junior Associate' },
-    { id: 'junior-002', name: 'Rahul Sharma', available: true, active: 1, initials: 'RS', role: 'Junior Associate' },
-    { id: 'junior-003', name: 'Karan Mehta', available: false, active: 1, initials: 'KM', role: 'Junior Associate' },
-    { id: 'junior-004', name: 'Meera Iyer', available: true, active: 0, initials: 'MI', role: 'Junior Associate' }
-  ],
-
-  // Shared Notification Feed
-  notifications: [
-    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'WP(C) 4521/2026 is approaching (Δ 04).' },
-    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Court Hall 3 live item updated to 56 by Ananya Rao.' },
-    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'COMIP 182/2026 is approaching (Δ 05).' },
-    { id: 4, time: '09:57', tone: 'safe', text: 'AI Brief Ready', sub: 'Ephemeral argument brief generated for WP(C) 4521/2026.' }
-  ],
-
-  // Shared Case History
-  caseHistory: [
-    { time: '10:15 AM', text: 'Cause list synchronized across 4 High Courts.' },
-    { time: '10:28 AM', text: 'Live item corrected to 56 by Ananya Rao.' }
-  ],
-
-  // Research Assistant Chat Logs
+  // Realtime Chamber State
+  cases: [],
+  team: [],
+  notifications: [],
+  caseHistory: [],
+  courtStatus: { isOperatingHours: true, statusText: 'COURT_SITTING', nextSession: '09:00 AM IST', demoOverride: true },
+  
   researchHistory: [
     { sender: 'user', text: 'Find authorities on maintainability of writ petition when alternative statutory remedy exists.' },
     { sender: 'ai', text: 'Key exceptions to the alternative remedy rule under Article 226:\n1. Breach of fundamental rights (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Violation of principles of natural justice.\n3. Orders passed completely without jurisdiction.\n4. Challenge to ultra vires legislation.\nAlways cross-check citations against official law reports before citing.' }
   ]
 };
 
-// Urgency Rules: Δ = Assigned Item - Live Item
+let socket = null;
+
+// Connect Realtime WebSocket Server for Cross-Device Synchronization
+function initWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}`;
+  
+  try {
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log('Connected to LexMatrix Realtime Chamber WebSocket Engine');
+    };
+
+    socket.onmessage = event => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'INIT_STATE' || msg.type === 'STATE_UPDATE') {
+          state.cases = msg.data.cases || [];
+          state.team = msg.data.users || [];
+          state.notifications = msg.data.notifications || [];
+          state.caseHistory = msg.data.caseHistory || [];
+          if (msg.data.courtStatus) state.courtStatus = msg.data.courtStatus;
+          app();
+        }
+      } catch (e) {
+        console.error('WebSocket parse error:', e);
+      }
+    };
+
+    socket.onclose = () => {
+      // Reconnect after 3s delay
+      setTimeout(initWebSocket, 3000);
+    };
+  } catch (e) {
+    console.log('WebSocket fallback to REST API');
+  }
+}
+
+// Fetch Initial State from REST API
+async function fetchState() {
+  try {
+    const res = await fetch('/api/v1/state');
+    const data = await res.json();
+    if (data.success) {
+      state.cases = data.data.cases;
+      state.team = data.data.users;
+      state.notifications = data.data.notifications;
+      state.caseHistory = data.data.caseHistory;
+      if (data.data.courtStatus) state.courtStatus = data.data.courtStatus;
+      app();
+    }
+  } catch (e) {
+    console.log('Running in local offline mode');
+  }
+}
+
+// Helper calculations
 const delta = c => c.item - c.live;
 const urgency = c => {
   const d = delta(c);
@@ -166,7 +119,7 @@ function playAudioAlert() {
   }
 }
 
-// Brand Element
+// Brand Component
 function brand() {
   return `<div class="brand"><span class="brand-mark">L</span><span><b>LEX</b>MATRIX</span></div>`;
 }
@@ -176,29 +129,28 @@ function button(label, action, icon = '', type = '') {
   return `<button class="btn ${type}" onclick="${action}">${icon ? ICON(icon) : ''}<span>${label}</span></button>`;
 }
 
-// Reusable Urgency Badge Component
+// Reusable Urgency Badge
 function urgencyBadge(c) {
   const u = urgency(c);
   const d = delta(c);
   return `<span class="delta-badge ${u}">Δ ${String(d).padStart(2, '0')}</span>`;
 }
 
-// Topbar Navigation Header
+// Topbar Header
 function topbarAuth() {
   const s = state.session || { name: 'Demo User', role: 'senior' };
-  const initials = s.name.split(' ').map(x => x[0]).join('').slice(0, 2);
+  const initials = s.name ? s.name.split(' ').map(x => x[0]).join('').slice(0, 2) : 'SP';
   const unreadCount = state.notifications.length;
+  const isSitting = state.courtStatus.statusText === 'COURT_SITTING';
 
   return `<header class="topbar">
     ${brand()}
     <div class="top-center">
       <span class="date">Friday, 11 September 2026</span>
-      <span class="system-live"><i class="live-dot"></i> LIVE COMMAND SYSTEM</span>
-      <div style="display:flex;align-items:center;gap:6px;margin-left:10px">
-        <span class="caps" style="font-size:9px">Sim Speed:</span>
-        <button class="tiny-btn" style="${state.simSpeed === 'demo' ? 'color:var(--gold-hi);font-weight:700' : ''}" onclick="setSimSpeed('demo')">⚡ Demo (Fast)</button>
-        <button class="tiny-btn" style="${state.simSpeed === 'normal' ? 'color:var(--gold-hi);font-weight:700' : ''}" onclick="setSimSpeed('normal')">⏱️ Normal</button>
-      </div>
+      <span class="system-live">
+        <i class="${isSitting ? 'live-dot' : 'offline-dot'}"></i> 
+        ${isSitting ? 'HIGH COURTS SITTING (LIVE 30s FEED)' : 'COURT NOT SITTING (OPENS 09:00 AM IST)'}
+      </span>
     </div>
     <div class="top-actions">
       ${s.role === 'senior' && state.page === 'dashboard' ? button('Advance Live Items', 'advance()', 'fast-forward') : ''}
@@ -208,7 +160,7 @@ function topbarAuth() {
       </button>
       <div class="avatar" onclick="state.profileOpen = !state.profileOpen; app()">${initials}</div>
       ${state.profileOpen ? `<div class="profile-menu glass">
-        <button onclick="toast('Firm: Sharma & Associates')">Sharma & Associates</button>
+        <button onclick="toast('Chamber: Sharma & Associates (LX-7F2K-9Q)')">Sharma & Associates</button>
         <button onclick="go('settings')">Account Settings</button>
         <button onclick="logout()">Log Out</button>
       </div>` : ''}
@@ -216,38 +168,41 @@ function topbarAuth() {
   </header>`;
 }
 
-// Senior Sidebar Navigation
+// Unified Left Sidebar Navigation Component for Senior
 function sidebar() {
   const links = [
     ['dashboard', 'layout-dashboard', 'Dashboard'],
+    ['liveData', 'radio', 'Live Data Feed'],
     ['cause', 'list-tree', 'Cause List'],
+    ['importCase', 'file-plus', 'Import Case'],
     ['team', 'users-round', 'My Team'],
-    ['detail', 'archive', 'Case Workspace'],
+    ['research', 'sparkles', 'Research AI Assistant'],
     ['settings', 'settings-2', 'Settings']
   ];
   return `<aside class="sidebar">
     ${links.map(([p, i, l]) => `<button class="side-link ${state.page === p ? 'active' : ''}" onclick="go('${p}')">${ICON(i)}<span>${l}</span></button>`).join('')}
     <div class="sidebar-bottom">
-      <div class="caps">Team Key</div>
+      <div class="caps">Chamber Key</div>
       <div class="mono" style="color:var(--gold-hi);margin-top:6px;font-weight:700">LX-7F2K-9Q</div>
     </div>
   </aside>`;
 }
 
-// Junior Sidebar Navigation
+// Unified Left Sidebar Navigation Component for Junior
 function juniorSidebar() {
   const links = [
     ['junior', 'layout-dashboard', 'My Dashboard'],
     ['juniorCases', 'briefcase-business', 'My Cases'],
+    ['liveData', 'radio', 'Live Data Feed'],
     ['juniorNotifications', 'bell', 'Notifications'],
-    ['juniorResearch', 'search', 'Research'],
+    ['juniorResearch', 'sparkles', 'Research AI Assistant'],
     ['juniorSettings', 'settings-2', 'Settings']
   ];
   return `<aside class="junior-sidebar">
     ${links.map(([p, i, l]) => `<button class="side-link ${state.page === p ? 'active' : ''}" onclick="go('${p}')">${ICON(i)}<span>${l}</span></button>`).join('')}
     <div class="junior-note">
-      <div class="caps">Assigned Workspace</div>
-      <div style="margin-top:6px;font-size:11px;line-height:1.4">Only your matters are displayed here.</div>
+      <div class="caps">Linked Chamber</div>
+      <div style="margin-top:6px;font-size:11px;line-height:1.4">Sharma & Associates (LX-7F2K-9Q)</div>
     </div>
   </aside>`;
 }
@@ -257,7 +212,7 @@ function demoSwitcher() {
   if (!state.session) return '';
   const isSenior = state.session.role === 'senior';
   return `<div class="demo-switcher glass">
-    <span class="caps">Demo Mode</span>
+    <span class="caps">Demo Role Switcher</span>
     <button onclick="demoLogin('senior')" style="${isSenior ? 'background:var(--gold);color:#000' : ''}">Enter as Senior Advocate</button>
     <button onclick="demoLogin('junior')" style="${!isSenior ? 'background:var(--gold);color:#000' : ''}">Enter as Junior Associate</button>
   </div>`;
@@ -307,10 +262,10 @@ function landing() {
       ${brand()}
       <div class="nav-links">
         <span onclick="toast('Pilot courts: Delhi, Bombay, Karnataka, Calcutta HC')">Pilot Courts</span>
-        <span onclick="toast('Ephemeral AI processing constraint enforced.')">Security & Privacy</span>
+        <span onclick="toast('Security: Ephemeral AI processing, zero cloud retention.')">Security & Privacy</span>
         <span onclick="go('login')">Sign In</span>
       </div>
-      ${button('Enter LexMatrix', "demoLogin('senior')", 'arrow-right', 'btn-gold')}
+      ${button('Enter Chamber Portal', "go('login')", 'arrow-right', 'btn-gold')}
     </nav>
     <main class="landing-main">
       <section class="landing-copy">
@@ -318,8 +273,8 @@ function landing() {
         <h1>One Advocate.<br>Multiple Courtrooms.<br><em>Zero Coordination Chaos.</em></h1>
         <p>LexMatrix gives litigation teams a live command center for tracking hearings, detecting clashes, and delegating matters in real time across High Courts.</p>
         <div class="landing-actions">
-          ${button('Enter as Senior Advocate', "demoLogin('senior')", 'shield', 'btn-gold')}
-          ${button('Enter as Junior Associate', "demoLogin('junior')", 'user-check')}
+          ${button('Enter Senior Advocate Portal', "demoLogin('senior')", 'shield', 'btn-gold')}
+          ${button('Enter Junior Associate Portal', "demoLogin('junior')", 'user-check')}
         </div>
       </section>
       <section class="court-float glass">
@@ -361,7 +316,7 @@ function landing() {
 }
 
 // -------------------------------------------------------------
-// AUTHENTICATION VIEWS
+// MULTI-TENANT CHAMBER AUTHENTICATION VIEWS
 // -------------------------------------------------------------
 function authStory() {
   return `<section class="auth-story">
@@ -385,138 +340,50 @@ function authShell(content) {
 
 function login() {
   return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Secure Sign In</div>
-    <h1>Welcome back</h1>
-    <p>Sign in to your litigation command center.</p>
-    <button class="btn" onclick="demoLogin('senior')">${ICON('chrome')}Continue with Google</button>
-    <div class="auth-divider">OR</div>
-    <form onsubmit="signIn(event)">
-      <div class="field">
-        <label>Email Address</label>
-        <input name="email" type="email" required placeholder="name@firm.com">
-      </div>
-      <div class="field" style="margin-top:12px">
-        <label>Password</label>
-        <input name="password" type="password" required placeholder="Enter password">
-      </div>
-      ${state.authError ? `<div class="auth-error">${state.authError}</div>` : ''}
-      <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Sign In</button>
-    </form>
-    <div class="auth-links">
-      <button class="text-button" onclick="toast('Demo recovery email sent.')">Forgot password?</button>
-      <span>New here? <button class="text-button" onclick="go('signup')">Create account</button></span>
+    <div class="eyebrow">Chamber Authentication</div>
+    <h1>Sign in to LexMatrix</h1>
+    <p>Enter your Senior Master Login or Junior Chamber Credentials.</p>
+    
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button class="btn ${!state.pending ? 'btn-gold' : ''}" style="flex:1;justify-content:center" onclick="state.pending=null;app()">Senior Master Login</button>
+      <button class="btn ${state.pending ? 'btn-gold' : ''}" style="flex:1;justify-content:center" onclick="state.pending='junior';app()">Junior Chamber Join</button>
     </div>
-  </section>`);
-}
 
-function signup() {
-  return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Create Account</div>
-    <h1>Build your command center</h1>
-    <p>Verify your email before configuring your litigation workspace.</p>
-    <button class="btn" onclick="demoLogin('senior')">${ICON('chrome')}Continue with Google</button>
-    <div class="auth-divider">OR</div>
-    <form onsubmit="sendOtp(event)">
-      <div class="field">
-        <label>Full Name</label>
-        <input name="name" required placeholder="Advocate Name">
-      </div>
-      <div class="field" style="margin-top:12px">
-        <label>Email</label>
-        <input name="email" type="email" required placeholder="name@firm.com">
-      </div>
-      <div class="field" style="margin-top:12px">
-        <label>Password</label>
-        <input name="password" type="password" minlength="8" required placeholder="At least 8 characters">
-      </div>
-      <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Send Verification Code</button>
-    </form>
-    <div class="auth-links">
-      <span>Already registered? <button class="text-button" onclick="go('login')">Sign In</button></span>
-    </div>
-  </section>`);
-}
+    ${!state.pending ? `
+      <form onsubmit="signIn(event)">
+        <div class="field">
+          <label>Senior Advocate Email</label>
+          <input name="email" type="email" required value="senior@lexmatrix.demo" placeholder="name@firm.com">
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Password</label>
+          <input name="password" type="password" required value="chamber123" placeholder="Enter password">
+        </div>
+        ${state.authError ? `<div class="auth-error">${state.authError}</div>` : ''}
+        <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Sign In as Senior Advocate</button>
+      </form>
+    ` : `
+      <form onsubmit="juniorChamberLogin(event)">
+        <div class="field">
+          <label>Chamber Key</label>
+          <input name="key" required value="LX-7F2K-9Q" placeholder="LX-7F2K-9Q" style="text-transform:uppercase">
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Chamber Password</label>
+          <input name="password" type="password" required value="chamber123" placeholder="Enter password">
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Junior Full Name</label>
+          <input name="name" required value="Ananya Rao" placeholder="Advocate Full Name">
+        </div>
+        ${state.authError ? `<div class="auth-error">${state.authError}</div>` : ''}
+        <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Join & Link Chamber Account</button>
+      </form>
+    `}
 
-function otp() {
-  return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Email Verification</div>
-    <h1>Confirm your email</h1>
-    <p>We sent a 6-digit verification code to <strong>${state.pending?.email || 'your email'}</strong>.</p>
-    <form onsubmit="verifyOtp(event)">
-      <div class="field">
-        <label>Verification Code</label>
-        <input name="otp" inputmode="numeric" pattern="[0-9]{6}" required placeholder="123456" style="text-align:center;letter-spacing:4px;font-size:18px">
-      </div>
-      ${state.authError ? `<div class="auth-error">${state.authError}</div>` : ''}
-      <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Verify Email</button>
-    </form>
-    <div class="auth-links">
-      <button class="text-button" onclick="toast('Code sent: 123456')">Resend Code</button>
+    <div class="auth-links" style="margin-top:22px">
+      <span>Demo shortcut? <button class="text-button" onclick="demoLogin('senior')">Demo Senior</button> | <button class="text-button" onclick="demoLogin('junior')">Demo Junior</button></span>
     </div>
-  </section>`);
-}
-
-function roleSelect() {
-  return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Role Selection</div>
-    <h1>How will you use LexMatrix?</h1>
-    <p>Your chosen role determines your workspace layout and coordination permissions.</p>
-    <div class="role-options">
-      <button class="role-option" onclick="chooseRole('senior')">
-        <h3>Senior Advocate</h3>
-        <p>Create & manage a litigation team, assign matters across High Courts, and monitor live courtroom progression.</p>
-        <span class="text-button" style="display:block;margin-top:10px">Continue as Senior →</span>
-      </button>
-      <button class="role-option" onclick="chooseRole('junior')">
-        <h3>Junior Associate</h3>
-        <p>Join an existing litigation team using a Team Key, receive assigned matters, and access AI briefs.</p>
-        <span class="text-button" style="display:block;margin-top:10px">Join Team as Junior →</span>
-      </button>
-    </div>
-  </section>`);
-}
-
-function seniorOnboarding() {
-  return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Senior Advocate Onboarding</div>
-    <h1>Create your litigation team</h1>
-    <p>Set up the firm workspace your associates will join.</p>
-    <form onsubmit="createTeam(event)">
-      <div class="field">
-        <label>Firm / Team Name</label>
-        <input name="firm" required value="${state.session?.teamName || ''}" placeholder="Sharma & Associates">
-      </div>
-      <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Create Team</button>
-    </form>
-    ${state.session?.teamKey ? `<div class="key-display">
-      <div class="caps">System-Generated Team Key</div>
-      <strong>${state.session.teamKey}</strong>
-      ${button('Copy Team Key', "toast('Team Key copied: LX-7F2K-9Q')", 'copy')}
-    </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:10px">Share this key with junior associates so they can join your team.</p>
-    <button class="btn btn-gold" style="margin-top:14px;width:100%" onclick="go('dashboard')">Go to Command Center</button>` : ''}
-  </section>`);
-}
-
-function juniorOnboarding() {
-  const found = state.teamFound;
-  return authShell(`<section class="auth-card glass">
-    <div class="eyebrow">Junior Associate Onboarding</div>
-    <h1>Join your litigation team</h1>
-    <p>Enter the Team Key provided by your senior advocate.</p>
-    ${found ? `<div class="key-display">
-      <div class="caps">Team Found</div>
-      <strong style="font-family:'Inter';font-size:18px">Sharma & Associates</strong>
-      <span class="sub" style="display:block;margin-top:4px">Senior Advocate: A. Sharma</span>
-    </div>
-    <button class="btn btn-gold" style="width:100%" onclick="joinTeam()">Join Team Now</button>` : `<form onsubmit="findTeam(event)">
-      <div class="field">
-        <label>Team Key (Enter LX-7F2K-9Q)</label>
-        <input name="key" required placeholder="LX-7F2K-9Q" style="text-transform:uppercase">
-      </div>
-      ${state.authError ? `<div class="auth-error">${state.authError}</div>` : ''}
-      <button class="btn btn-gold" style="margin-top:18px;width:100%" type="submit">Find Team</button>
-    </form>`}
   </section>`);
 }
 
@@ -525,12 +392,19 @@ function juniorOnboarding() {
 // -------------------------------------------------------------
 function caseRow(c) {
   const u = urgency(c);
+  const d = delta(c);
   return `<tr>
     <td><span class="case-number">${c.no}</span></td>
     <td class="party">${c.parties}<span class="sub">${c.bench}</span></td>
     <td>${c.court}<span class="sub">${c.hall} · Walk: ${c.walkTime}</span></td>
     <td class="mono">${c.item}</td>
-    <td><span class="mono">${c.live}</span><span class="sub"><i class="live-dot"></i> LIVE</span></td>
+    <td>
+      <div class="nudge-group">
+        <button class="nudge-btn" title="Manual -1 Override" onclick="nudgeItem(${c.id}, -1)">-1</button>
+        <span class="mono">${c.live}</span>
+        <button class="nudge-btn" title="Manual +1 Override" onclick="nudgeItem(${c.id}, 1)">+1</button>
+      </div>
+    </td>
     <td>${urgencyBadge(c)}</td>
     <td class="mono">${c.eta}</td>
     <td>${c.assignee ? `<strong>${c.assignee}</strong>` : '<span class="critical">Unassigned</span>'}<span class="sub">${c.status}</span></td>
@@ -541,9 +415,9 @@ function caseRow(c) {
     </td>
     <td>
       <div class="actions-row">
-        <button class="tiny-btn" title="Open Workspace" onclick="openCase(${c.id})">${ICON('arrow-up-right')}</button>
+        <button class="tiny-btn" title="Open Case Workspace" onclick="openCase(${c.id})">${ICON('arrow-up-right')}</button>
         <button class="tiny-btn" title="Assign Junior" onclick="assignModal(${c.id})">${ICON('user-plus')}</button>
-        <button class="tiny-btn" title="Correct Live Item" onclick="correctModal(${c.id})">${ICON('pencil')}</button>
+        ${d <= 5 ? `<button class="tiny-btn" title="Emergency Delegation" style="color:var(--red)" onclick="openEmergencyModal(${c.id})">${ICON('zap')}</button>` : ''}
       </div>
     </td>
   </tr>`;
@@ -562,8 +436,8 @@ function dashboard() {
         <p>Synchronized across Delhi, Bombay, Karnataka, and Calcutta High Courts.</p>
       </div>
       <div>
+        ${button('+ Import Case Module', "go('importCase')", 'file-plus')}
         ${button('Fetch Court Website', "modal('fetch')", 'external-link')}
-        ${button('+ Add Case Manually', "modal('add')", 'plus', 'btn-gold')}
       </div>
     </div>
 
@@ -578,7 +452,7 @@ function dashboard() {
       <div class="table-panel glass">
         <div class="section-title">
           <h2>Today's Cause List</h2>
-          <span><i class="live-dot"></i> Live synchronized</span>
+          <span><i class="live-dot"></i> Realtime WebSocket Synchronized</span>
         </div>
         <table class="cause-table">
           <thead>
@@ -587,7 +461,7 @@ function dashboard() {
               <th>Parties / Bench</th>
               <th>Court / Hall</th>
               <th>Item</th>
-              <th>Live</th>
+              <th>Live (-1/+1 Nudge)</th>
               <th>Delta</th>
               <th>Est. Time</th>
               <th>Assignment</th>
@@ -608,7 +482,10 @@ function dashboard() {
           <span class="sub">${urgentCase.court} · ${urgentCase.hall}</span>
           <div class="large-delta">Δ ${String(delta(urgentCase)).padStart(2, '0')}</div>
           <p class="sub">Live Item ${urgentCase.live} · Case Item ${urgentCase.item}</p>
-          ${button('Allot a Junior Now', `assignModal(${urgentCase.id})`, 'user-plus', 'btn-gold')}
+          <div style="display:grid;gap:8px;margin-top:12px">
+            ${button('Emergency Delegation', `openEmergencyModal(${urgentCase.id})`, 'zap', 'btn-gold')}
+            ${button('Allot Junior', `assignModal(${urgentCase.id})`, 'user-plus')}
+          </div>
         </div>
 
         <div class="timeline-card glass">
@@ -623,6 +500,137 @@ function dashboard() {
   </div>`;
 }
 
+// Import Case Module View
+function importCaseView() {
+  return `<div class="main">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Case Import Module</div>
+        <h1>Import Case & Delegate File</h1>
+        <p>Register new matters manually and automatically route case materials to assigned counsel.</p>
+      </div>
+    </div>
+
+    <section class="panel glass" style="max-width:750px">
+      <form onsubmit="submitImportCase(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>Case Number</label>
+            <input name="no" required value="LPA 402/2026" placeholder="e.g. LPA 402/2026">
+          </div>
+          <div class="field">
+            <label>Item Number</label>
+            <input name="item" type="number" required value="55" placeholder="55">
+          </div>
+          <div class="field full">
+            <label>Party Names</label>
+            <input name="parties" required value="Apex Biotech Ltd. v. Union of India" placeholder="Petitioner v. Respondent">
+          </div>
+          <div class="field">
+            <label>High Court</label>
+            <select name="court">
+              <option>Delhi High Court</option>
+              <option>Bombay High Court</option>
+              <option>Karnataka High Court</option>
+              <option>Calcutta High Court</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Court Hall Number</label>
+            <input name="hall" required value="Court Hall 4" placeholder="Court Hall 4">
+          </div>
+          <div class="field">
+            <label>Bench / Judge</label>
+            <input name="bench" value="Justice Sharma" placeholder="Justice Sharma">
+          </div>
+          <div class="field">
+            <label>Assign Matter To</label>
+            <select name="assignee">
+              <option value="">Unassigned</option>
+              <option value="Senior Advocate">Senior Advocate (Self-Attend)</option>
+              ${state.team.map(m => `<option value="${m.fullName}">${m.fullName} (${m.role})</option>`).join('')}
+            </select>
+          </div>
+          <div class="field full">
+            <label>Upload Document Brief (Ephemeral Routing)</label>
+            <input name="file" type="file" accept=".pdf,.docx">
+          </div>
+          <div class="field full">
+            <label>Hearing Notes</label>
+            <textarea name="notes" rows="2" placeholder="Key instructions for assigned counsel..."></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-gold" type="submit">${ICON('file-plus')}Import Case & Route Files</button>
+        </div>
+      </form>
+    </section>
+  </div>`;
+}
+
+// Live Data Feed Module
+function liveDataView() {
+  const isSitting = state.courtStatus.statusText === 'COURT_SITTING';
+  return `<div class="main">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">High Court Live Board Integration</div>
+        <h1>Live Courtroom Data Feed</h1>
+        <p>Automated 30-second queries across active High Court display boards (09:00 AM – 04:00 PM IST).</p>
+      </div>
+      ${button('Simulate +1 Ticker Step', 'advance()', 'fast-forward')}
+    </div>
+
+    <section class="panel glass" style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span class="status ${isSitting ? 'safe' : 'approaching'}">
+            <i class="${isSitting ? 'live-dot' : 'offline-dot'}"></i>
+            ${isSitting ? 'COURT IN SESSION (LIVE 30s REFRESH)' : 'COURT NOT SITTING (OPENS 09:00 AM IST)'}
+          </span>
+          <p style="margin:6px 0 0;font-size:12.5px;color:var(--muted)">Operating Hours: Monday–Friday, 09:00 AM – 04:00 PM IST</p>
+        </div>
+        ${button(state.courtStatus.demoOverride ? 'Disable Demo Ticker Override' : 'Enable Demo Ticker Override', 'toggleCourtHoursOverride()', 'clock')}
+      </div>
+    </section>
+
+    <div class="table-panel glass">
+      <table class="cause-table">
+        <thead>
+          <tr>
+            <th>Case No.</th>
+            <th>Parties</th>
+            <th>Court / Hall</th>
+            <th>Case Item</th>
+            <th>Live Item (-1/+1 Nudge)</th>
+            <th>Delta</th>
+            <th>Est. Call Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${state.cases.map(c => `<tr>
+            <td><span class="case-number">${c.no}</span></td>
+            <td>${c.parties}</td>
+            <td>${c.court} · ${c.hall}</td>
+            <td class="mono">${c.item}</td>
+            <td>
+              <div class="nudge-group">
+                <button class="nudge-btn" onclick="nudgeItem(${c.id}, -1)">-1</button>
+                <span class="mono">${c.live}</span>
+                <button class="nudge-btn" onclick="nudgeItem(${c.id}, 1)">+1</button>
+              </div>
+            </td>
+            <td>${urgencyBadge(c)}</td>
+            <td class="mono">${c.eta}</td>
+            <td><span class="status ${urgency(c)}">${urgency(c).toUpperCase()}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function causeView() {
   return `<div class="main">
     <div class="page-head">
@@ -631,7 +639,7 @@ function causeView() {
         <h1>Full Cause List</h1>
         <p>Live progress by court hall across all pilot High Courts.</p>
       </div>
-      ${button('+ Add Case Manually', "modal('add')", 'plus', 'btn-gold')}
+      ${button('+ Import Case', "go('importCase')", 'file-plus', 'btn-gold')}
     </div>
     <div class="table-panel glass">
       <table class="cause-table">
@@ -641,7 +649,7 @@ function causeView() {
             <th>Parties / Bench</th>
             <th>Court / Hall</th>
             <th>Item</th>
-            <th>Live</th>
+            <th>Live (-1/+1 Nudge)</th>
             <th>Delta</th>
             <th>Est. Time</th>
             <th>Assignment</th>
@@ -662,34 +670,58 @@ function teamView() {
     <div class="page-head">
       <div>
         <div class="eyebrow">Firm Coordination</div>
-        <h1>My Team</h1>
+        <h1>My Team Roster</h1>
         <p>Associate availability and active workload management.</p>
       </div>
-      ${button('Copy Team Key', "toast('Team Key copied: LX-7F2K-9Q')", 'copy', 'btn-gold')}
+      ${button('Copy Chamber Key', "toast('Chamber Key copied: LX-7F2K-9Q')", 'copy', 'btn-gold')}
     </div>
 
     <section class="team-grid">
       ${state.team.map((m, i) => `<article class="member-card glass">
-        <div class="avatar" style="width:40px;height:40px;font-size:14px">${m.initials}</div>
-        <h3>${m.name}</h3>
+        <div class="avatar" style="width:40px;height:40px;font-size:14px">${m.fullName ? m.fullName.split(' ').map(x=>x[0]).join('') : 'AR'}</div>
+        <h3>${m.fullName || m.name}</h3>
         <p>${m.role}</p>
         <div class="status ${m.available ? 'safe' : 'critical'}" style="margin-top:14px">
           <i class="live-dot"></i>${m.available ? 'Available' : 'Unavailable'}
         </div>
         <footer>
-          <span>${m.active} active matter${m.active !== 1 ? 's' : ''}</span>
+          <span>${m.activeCases || m.active || 0} active matter(s)</span>
           <button class="tiny-btn" onclick="toggleMember(${i})">${m.available ? 'Set Unavailable' : 'Set Available'}</button>
         </footer>
       </article>`).join('')}
     </section>
 
     <section class="panel glass" style="margin-top:24px;max-width:560px">
-      <div class="caps">Secure Junior Onboarding</div>
-      <h3 style="margin-top:8px">Your Team Key: <span class="mono" style="color:var(--gold-hi)">LX-7F2K-9Q</span></h3>
-      <p style="color:var(--muted);font-size:12px;line-height:1.6">Share this key directly with junior associates. New team members appear here automatically upon registration.</p>
+      <div class="caps">Linked Chamber Key</div>
+      <h3 style="margin-top:8px">Chamber Key: <span class="mono" style="color:var(--gold-hi)">LX-7F2K-9Q</span></h3>
+      <p style="color:var(--muted);font-size:12px;line-height:1.6">Junior associates log in using this Chamber Key + Chamber Password + Their Full Name to link directly to your dashboard.</p>
       <div style="display:flex;gap:10px;margin-top:16px">
-        ${button('Copy Team Key', "toast('Team Key copied: LX-7F2K-9Q')", 'copy')}
-        ${button('Regenerate Key', "toast('New Team Key generated securely')", 'refresh-cw')}
+        ${button('Copy Chamber Key', "toast('Chamber Key copied: LX-7F2K-9Q')", 'copy')}
+        ${button('Regenerate Key', "toast('New Chamber Key generated')", 'refresh-cw')}
+      </div>
+    </section>
+  </div>`;
+}
+
+function researchView() {
+  return `<div class="main">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">AI Legal Assistant</div>
+        <h1>Research AI Assistant</h1>
+        <p>Ask questions and extract legal authorities in real time.</p>
+      </div>
+    </div>
+    <section class="panel glass" style="max-width:820px">
+      <div class="research-log">
+        ${state.researchHistory.map(r => `<div class="bubble ${r.sender}">${r.text.replace(/\n/g, '<br>')}</div>`).join('')}
+      </div>
+      <form onsubmit="submitResearch(event)" style="margin-top:16px;display:flex;gap:10px">
+        <input name="q" placeholder="Type legal research query..." required style="flex:1">
+        <button class="btn btn-gold" type="submit">${ICON('send')}Ask AI</button>
+      </form>
+      <div class="disclaimer">
+        Research results must be independently cross-checked before being relied upon in court.
       </div>
     </section>
   </div>`;
@@ -759,23 +791,8 @@ function detailView() {
         </div>
 
         <div class="panel glass">
-          <h3>Ephemeral Case Files</h3>
-          <div class="file-row">${ICON('file-text')}<span>briefing-note.pdf <small class="sub">1.8 MB · ephemeral session input</small></span></div>
-          <div class="file-row">${ICON('file-text')}<span>annexures-summary.docx <small class="sub">842 KB · ephemeral session input</small></span></div>
-        </div>
-
-        <div class="panel glass">
-          <h3>Research Assistant</h3>
-          <div class="research-log">
-            ${state.researchHistory.map(r => `<div class="bubble ${r.sender}">${r.text.replace(/\n/g, '<br>')}</div>`).join('')}
-          </div>
-          <form onsubmit="submitResearch(event)" style="margin-top:12px;display:flex;gap:8px">
-            <input name="q" placeholder="Ask legal question..." required style="flex:1">
-            <button class="btn btn-gold" type="submit">${ICON('send')}</button>
-          </form>
-          <div class="disclaimer">
-            Research results must be independently cross-checked before being relied upon in court.
-          </div>
+          <h3>Attached Case Files</h3>
+          ${c.files && c.files.length ? c.files.map(f => `<div class="file-row">${ICON('file-text')}<span>${f.name} <small class="sub">${f.size} · ephemeral routed file</small></span></div>`).join('') : '<div class="sub">No files attached</div>'}
         </div>
       </div>
     </section>
@@ -794,6 +811,7 @@ function settingsView() {
       <h3>Tiered Alert Escalation</h3>
       <div class="assignment-line"><span>30-minute notifications</span><strong class="safe">Enabled</strong></div>
       <div class="assignment-line"><span>15-minute warnings</span><strong class="approaching">Enabled</strong></div>
+      <div class="assignment-line"><span>10-minute warnings</span><strong class="approaching">Enabled</strong></div>
       <div class="assignment-line"><span>5-minute critical alerts</span><strong class="critical">Enabled</strong></div>
       <div class="assignment-line">
         <span>1-minute audio alert tone</span>
@@ -807,7 +825,8 @@ function settingsView() {
 // JUNIOR ASSOCIATE DASHBOARD & WORKSPACES
 // -------------------------------------------------------------
 function myCases() {
-  return state.cases.filter(c => c.assignee === 'Ananya Rao' || c.assignee === 'Rahul Sharma' || c.assigneeId === 'junior-001');
+  const userName = state.session ? state.session.name : 'Ananya Rao';
+  return state.cases.filter(c => c.assignee === userName || c.assignee === 'Ananya Rao' || c.assignee === 'Rahul Sharma');
 }
 
 function juniorCard(c) {
@@ -819,7 +838,14 @@ function juniorCard(c) {
     <p>${c.parties}</p>
     <p style="margin-top:10px">${c.court}<br>${c.hall} · ${c.bench}</p>
     <div class="card-delta ${u}">Δ ${String(d).padStart(2, '0')}</div>
-    <p class="mono">ITEM ${c.item} &nbsp;|&nbsp; LIVE ${c.live}</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
+      <span class="mono">CASE ITEM ${c.item}</span>
+      <div class="nudge-group">
+        <button class="nudge-btn" title="Nudge -1" onclick="nudgeItem(${c.id}, -1)">-1</button>
+        <span class="mono">LIVE ${c.live}</span>
+        <button class="nudge-btn" title="Nudge +1" onclick="nudgeItem(${c.id}, 1)">+1</button>
+      </div>
+    </div>
     <footer>
       <span class="sub">${c.status}</span>
       ${button('View Case', `openCase(${c.id})`, 'arrow-up-right')}
@@ -830,11 +856,12 @@ function juniorCard(c) {
 function juniorDashboard() {
   const cases = myCases();
   const c = cases.sort((a, b) => delta(a) - delta(b))[0];
+  const isSitting = state.courtStatus.statusText === 'COURT_SITTING';
 
   if (!c) {
     return `<div class="main">
       <div class="junior-main">
-        <div class="eyebrow">Junior Associate / ${state.session.name}</div>
+        <div class="eyebrow">Junior Associate / ${state.session ? state.session.name : 'Ananya Rao'}</div>
         <h1 style="font-family:'Playfair Display'">My Dashboard</h1>
         <section class="empty-state glass">
           ${ICON('circle-check')}
@@ -853,25 +880,37 @@ function juniorDashboard() {
     <div class="junior-main">
       <div class="page-head">
         <div>
-          <div class="eyebrow">Junior Associate / ${state.session.name}</div>
+          <div class="eyebrow">Junior Associate / ${state.session ? state.session.name : 'Ananya Rao'}</div>
           <h1>My Dashboard</h1>
-          <p>Focus on the matter that needs your attention next.</p>
+          <p>Realtime synchronized with Senior Advocate S. Pranav</p>
         </div>
-        <span class="system-live"><i class="live-dot"></i> LIVE COURTROOM DATA</span>
+        <span class="status ${isSitting ? 'safe' : 'approaching'}">
+          <i class="${isSitting ? 'live-dot' : 'offline-dot'}"></i> 
+          ${isSitting ? 'COURT IN SESSION' : 'COURT NOT SITTING'}
+        </span>
       </div>
 
       <section class="junior-hero glass">
         <div>
           <div class="caps ${u}">${isAwaiting ? 'NEW MATTER ASSIGNED' : 'YOUR NEXT MATTER'} · ${c.status}</div>
           <h2>${c.no}</h2>
-          <p>${c.parties}<br>${c.court} · ${c.hall}<br>Before ${c.bench} · Item No. ${c.item}</p>
+          <p>${c.parties}<br>${c.court} · ${c.hall}<br>Before ${c.bench} · Case Item No. ${c.item}</p>
+          
+          <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+            <span class="caps">Manual Courtroom Override:</span>
+            <div class="nudge-group">
+              <button class="nudge-btn" onclick="nudgeItem(${c.id}, -1)">-1 Item</button>
+              <span class="mono" style="font-weight:700">LIVE ITEM ${c.live}</span>
+              <button class="nudge-btn" onclick="nudgeItem(${c.id}, 1)">+1 Item</button>
+            </div>
+          </div>
+
           <div class="hero-actions">
             ${isAwaiting ? `
               ${button('ACCEPT', `acceptMatter(${c.id})`, 'check', 'btn-gold')}
               ${button('DECLINE — REQUEST REASSIGNMENT', `declineMatter(${c.id})`, 'repeat-2')}
             ` : `
               ${button('View Case Workspace', `openCase(${c.id})`, 'arrow-up-right', 'btn-gold')}
-              ${button('VIEW AI BRIEF', `openCase(${c.id})`, 'book-open')}
               ${button('MARK AS ARGUED', `confirmAction('argued', ${c.id})`, 'check-circle')}
               ${button('REQUEST SENIOR TAKEOVER', `confirmAction('takeover', ${c.id})`, 'hand')}
             `}
@@ -929,29 +968,6 @@ function juniorNotificationsView() {
   </div>`;
 }
 
-function juniorResearchView() {
-  return `<div class="main">
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">Research Workspace</div>
-        <h1>Research Assistant</h1>
-      </div>
-    </div>
-    <section class="panel glass" style="max-width:800px">
-      <div class="research-log">
-        ${state.researchHistory.map(r => `<div class="bubble ${r.sender}">${r.text.replace(/\n/g, '<br>')}</div>`).join('')}
-      </div>
-      <form onsubmit="submitResearch(event)" style="margin-top:16px;display:flex;gap:8px">
-        <input name="q" placeholder="Ask legal question..." required style="flex:1">
-        <button class="btn btn-gold" type="submit">${ICON('send')}</button>
-      </form>
-      <div class="disclaimer">
-        Research results must be independently cross-checked before being relied upon in court.
-      </div>
-    </section>
-  </div>`;
-}
-
 function juniorSettingsView() {
   return `<div class="main">
     <div class="page-head">
@@ -973,43 +989,6 @@ function juniorSettingsView() {
 // -------------------------------------------------------------
 function modalView() {
   if (!state.modal) return '';
-
-  if (state.modal === 'add') {
-    return `<div class="modal-backdrop">
-      <section class="modal glass">
-        <div class="modal-head">
-          <div>
-            <div class="eyebrow">Manual Entry</div>
-            <h2>+ Add Case Manually</h2>
-          </div>
-          <button class="close" onclick="closeModal()">${ICON('x')}</button>
-        </div>
-        <form onsubmit="addCase(event)">
-          <div class="form-grid">
-            <div class="field"><label>Case Number</label><input name="no" required placeholder="e.g. LPA 318/2026"></div>
-            <div class="field"><label>Item Number</label><input name="item" type="number" required placeholder="60"></div>
-            <div class="field full"><label>Party Names</label><input name="parties" required placeholder="Petitioner v. Respondent"></div>
-            <div class="field">
-              <label>Court</label>
-              <select name="court">
-                <option>Delhi High Court</option>
-                <option>Bombay High Court</option>
-                <option>Karnataka High Court</option>
-                <option>Calcutta High Court</option>
-              </select>
-            </div>
-            <div class="field"><label>Court Hall</label><input name="hall" required placeholder="Court Hall 3"></div>
-            <div class="field"><label>Bench / Judge</label><input name="bench" placeholder="Justice Sharma"></div>
-            <div class="field"><label>Hearing Notes</label><input name="notes" placeholder="Optional notes"></div>
-          </div>
-          <div class="modal-foot">
-            ${button('Cancel', 'closeModal()')}
-            <button class="btn btn-gold" type="submit">${ICON('plus')}Add to Cause List</button>
-          </div>
-        </form>
-      </section>
-    </div>`;
-  }
 
   if (state.modal === 'fetch') {
     return `<div class="modal-backdrop">
@@ -1061,8 +1040,8 @@ function modalView() {
             <span><strong>Senior Advocate</strong><small class="sub">Attend Personally</small></span>
             <span class="safe">AVAILABLE</span>
           </button>
-          ${state.team.map(m => `<button class="assignee" onclick="assignCase('${m.name}', '${m.id}')">
-            <span><strong>${m.name}</strong><small class="sub">${m.active} active matter${m.active !== 1 ? 's' : ''}</small></span>
+          ${state.team.map(m => `<button class="assignee" onclick="assignCase('${m.fullName || m.name}', '${m.id}')">
+            <span><strong>${m.fullName || m.name}</strong><small class="sub">${m.activeCases || m.active || 0} active matter(s)</small></span>
             <span class="${m.available ? 'safe' : 'critical'}">${m.available ? 'FREE' : 'UNAVAILABLE'}</span>
           </button>`).join('')}
         </div>
@@ -1070,30 +1049,29 @@ function modalView() {
     </div>`;
   }
 
-  if (state.modal === 'correct') {
+  if (state.modal === 'emergency') {
     const c = state.cases.find(x => x.id === state.selectedCase);
     return `<div class="modal-backdrop">
       <section class="modal glass">
         <div class="modal-head">
           <div>
-            <div class="eyebrow">Shared Live Correction</div>
-            <h2>Correct Live Item Number</h2>
+            <div class="eyebrow critical">Emergency Clash Re-Assignment</div>
+            <h2>Single-Tap Re-Assignment (${c ? c.no : ''})</h2>
           </div>
           <button class="close" onclick="closeModal()">${ICON('x')}</button>
         </div>
-        <p style="color:var(--muted);font-size:13px">
-          ${c.court} · ${c.hall}. Current recorded live item: <strong class="mono">${c.live}</strong>
+        <p style="font-size:12.5px;color:var(--muted)">
+          Sorted by available item buffer ($\text{Assigned Item} - \text{Live Item} > 15$). Single tap delegates case & files immediately.
         </p>
-        <form onsubmit="correctLive(event)">
-          <div class="field">
-            <label>Live Item Number Now Being Called</label>
-            <input name="live" type="number" value="${c.live}" required>
-          </div>
-          <div class="modal-foot">
-            ${button('Cancel', 'closeModal()')}
-            <button class="btn btn-gold" type="submit">${ICON('check')}Update Live Item For Firm</button>
-          </div>
-        </form>
+        <div class="assign-list" style="margin-top:14px">
+          ${state.emergencyRoster.length ? state.emergencyRoster.map(j => `<button class="assignee" onclick="assignCase('${j.fullName}', '${j.userId}')">
+            <span>
+              <strong>${j.fullName}</strong>
+              <small class="sub">Location: ${j.courtHall} · Buffer: <strong>${j.itemBuffer} items</strong></small>
+            </span>
+            <span class="safe">REC. DELEGATE</span>
+          </button>`).join('') : '<div class="sub">Querying available roster...</div>'}
+        </div>
       </section>
     </div>`;
   }
@@ -1133,28 +1111,25 @@ function app() {
   let content;
 
   if (!state.session) {
-    content = state.page === 'signup' ? signup() :
-              state.page === 'otp' ? otp() :
-              state.page === 'roleSelect' ? roleSelect() :
-              state.page === 'seniorOnboarding' ? seniorOnboarding() :
-              state.page === 'juniorOnboarding' ? juniorOnboarding() :
-              state.page === 'landing' ? landing() : login();
-  } else if (!state.session.onboarded) {
-    content = state.session.role === 'senior' ? seniorOnboarding() : juniorOnboarding();
+    content = state.page === 'landing' ? landing() : login();
   } else {
     const isJunior = state.session.role === 'junior';
     let view;
 
     if (isJunior) {
       view = state.page === 'juniorCases' ? juniorCasesView() :
+             state.page === 'liveData' ? liveDataView() :
              state.page === 'juniorNotifications' ? juniorNotificationsView() :
-             state.page === 'juniorResearch' ? juniorResearchView() :
+             state.page === 'juniorResearch' || state.page === 'research' ? researchView() :
              state.page === 'juniorSettings' ? juniorSettingsView() :
              state.page === 'detail' ? detailView() : juniorDashboard();
     } else {
       view = state.page === 'dashboard' ? dashboard() :
+             state.page === 'liveData' ? liveDataView() :
              state.page === 'cause' ? causeView() :
+             state.page === 'importCase' ? importCaseView() :
              state.page === 'team' ? teamView() :
+             state.page === 'research' ? researchView() :
              state.page === 'detail' ? detailView() :
              state.page === 'settings' ? settingsView() : dashboard();
     }
@@ -1174,7 +1149,7 @@ function app() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-// Global Actions & State Handlers
+// Actions & Handlers
 function go(page) {
   state.page = page;
   state.modal = null;
@@ -1202,9 +1177,24 @@ function assignModal(id) {
   modal('assign');
 }
 
-function correctModal(id) {
+async function openEmergencyModal(id) {
   state.selectedCase = id;
-  modal('correct');
+  modal('emergency');
+  try {
+    const res = await fetch('/api/v1/chamber/emergency-juniors');
+    const data = await res.json();
+    if (data.success) {
+      state.emergencyRoster = data.roster;
+      app();
+    }
+  } catch (e) {
+    // Fallback emergency roster
+    state.emergencyRoster = [
+      { userId: 'junior-004', fullName: 'Meera Iyer', courtHall: 'Court Hall 8', itemBuffer: 38 },
+      { userId: 'junior-001', fullName: 'Ananya Rao', courtHall: 'Court Hall 3', itemBuffer: 22 }
+    ];
+    app();
+  }
 }
 
 function toggleNotifications() {
@@ -1221,94 +1211,101 @@ function toast(msg) {
   }, 2800);
 }
 
-function setSimSpeed(speed) {
-  state.simSpeed = speed;
-  toast(`Simulation speed set to ${speed.toUpperCase()}`);
+// Manual Nudge Override Handler (+1 / -1)
+async function nudgeItem(caseId, deltaOffset) {
+  const userName = state.session ? state.session.name : 'Junior Advocate';
+  try {
+    const res = await fetch(`/api/v1/cases/${caseId}/nudge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deltaOffset, updatedBy: userName })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast(`Manual live item correction (${deltaOffset > 0 ? '+1' : '-1'}) synchronized.`);
+    }
+  } catch (e) {
+    // Local fallback
+    const c = state.cases.find(x => x.id === caseId);
+    if (c) {
+      c.live = Math.max(1, c.live + deltaOffset);
+      toast(`Manual item override updated (${c.live}).`);
+      app();
+    }
+  }
 }
 
-function demoLogin(role) {
-  state.session = {
-    id: `demo-${role}`,
-    name: role === 'senior' ? 'S. Pranav' : 'Ananya Rao',
-    email: `${role}@lexmatrix.demo`,
-    role,
-    onboarded: true,
-    teamId: 'team-sharma',
-    teamName: 'Sharma & Associates',
-    teamKey: 'LX-7F2K-9Q'
-  };
-  saveSession();
-  state.page = role === 'senior' ? 'dashboard' : 'junior';
-  state.authError = '';
-  app();
-  toast(`Switched role to ${role === 'senior' ? 'Senior Advocate S. Pranav' : 'Junior Associate Ananya Rao'}`);
+async function demoLogin(role) {
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: role.toUpperCase(),
+        chamberKey: 'LX-7F2K-9Q',
+        chamberPassword: 'chamber123',
+        fullName: role === 'senior' ? 'S. Pranav' : 'Ananya Rao'
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.session = {
+        id: data.user.id,
+        name: data.user.fullName,
+        email: data.user.email,
+        role,
+        chamberKey: 'LX-7F2K-9Q',
+        onboarded: true
+      };
+      saveSession();
+      state.page = role === 'senior' ? 'dashboard' : 'junior';
+      app();
+      toast(`Authenticated as ${data.user.fullName} (${data.user.role})`);
+    }
+  } catch (e) {
+    // Local fallback
+    state.session = { id: `demo-${role}`, name: role === 'senior' ? 'S. Pranav' : 'Ananya Rao', role, onboarded: true };
+    saveSession();
+    state.page = role === 'senior' ? 'dashboard' : 'junior';
+    app();
+  }
 }
 
-function signIn(e) {
+async function signIn(e) {
   e.preventDefault();
-  const email = new FormData(e.target).get('email').toLowerCase();
-  if (email.includes('junior')) return demoLogin('junior');
   return demoLogin('senior');
 }
 
-function sendOtp(e) {
+async function juniorChamberLogin(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  state.pending = { name: f.get('name'), email: f.get('email') };
-  state.authError = '';
-  go('otp');
-}
+  const key = f.get('key').toUpperCase();
+  const pwd = f.get('password');
+  const name = f.get('name');
 
-function verifyOtp(e) {
-  e.preventDefault();
-  const otpVal = new FormData(e.target).get('otp');
-  if (otpVal !== '123456') {
-    state.authError = 'Incorrect OTP. Enter 123456';
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'JUNIOR', chamberKey: key, chamberPassword: pwd, fullName: name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.session = { id: data.user.id, name: data.user.fullName, email: data.user.email, role: 'junior', onboarded: true };
+      saveSession();
+      state.page = 'junior';
+      app();
+      toast(`Successfully linked account to ${data.user.chamberName}`);
+    } else {
+      state.authError = data.message;
+      app();
+    }
+  } catch (e) {
+    state.session = { id: `junior-${Date.now()}`, name, role: 'junior', onboarded: true };
+    saveSession();
+    state.page = 'junior';
     app();
-    return;
   }
-  state.session = { id: `user-${Date.now()}`, name: state.pending.name, email: state.pending.email, role: null, onboarded: false };
-  saveSession();
-  go('roleSelect');
-}
-
-function chooseRole(role) {
-  state.session.role = role;
-  saveSession();
-  go(role === 'senior' ? 'seniorOnboarding' : 'juniorOnboarding');
-}
-
-function createTeam(e) {
-  e.preventDefault();
-  state.session.teamName = new FormData(e.target).get('firm');
-  state.session.teamId = `team-${Date.now()}`;
-  state.session.teamKey = 'LX-7F2K-9Q';
-  state.session.onboarded = true;
-  saveSession();
-  toast('Team created! Team Key: LX-7F2K-9Q');
-}
-
-function findTeam(e) {
-  e.preventDefault();
-  const key = new FormData(e.target).get('key').toUpperCase();
-  if (key !== 'LX-7F2K-9Q') {
-    state.authError = 'Team Key not found. Use LX-7F2K-9Q';
-    app();
-    return;
-  }
-  state.teamFound = true;
-  state.authError = '';
-  app();
-}
-
-function joinTeam() {
-  state.session.teamId = 'team-sharma';
-  state.session.teamName = 'Sharma & Associates';
-  state.session.teamKey = 'LX-7F2K-9Q';
-  state.session.onboarded = true;
-  saveSession();
-  state.page = 'junior';
-  toast('Successfully joined Sharma & Associates');
 }
 
 function logout() {
@@ -1316,54 +1313,55 @@ function logout() {
   state.session = null;
   state.page = 'landing';
   state.profileOpen = false;
-  state.teamFound = false;
   app();
 }
 
-function assignCase(name, id) {
-  const c = state.cases.find(x => x.id === state.selectedCase);
-  c.assignee = name;
-  c.assigneeId = id;
-  c.status = name === 'Senior Advocate' ? 'Self-attend' : 'Awaiting Response';
-
-  const member = state.team.find(m => m.id === id || m.name === name);
-  if (member) member.active++;
-
-  state.notifications.unshift({
-    id: Date.now(),
-    time: 'Now',
-    tone: 'critical',
-    text: 'New Matter Assigned',
-    sub: `${c.no} assigned to ${name}.`
-  });
-
+async function assignCase(name, id) {
+  const caseId = state.selectedCase;
+  try {
+    await fetch(`/api/v1/cases/${caseId}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigneeName: name, assigneeId: id })
+    });
+  } catch (e) {
+    const c = state.cases.find(x => x.id === caseId);
+    if (c) {
+      c.assignee = name;
+      c.status = 'Awaiting Response';
+    }
+  }
   state.modal = null;
-  toast(`${c.no} assigned to ${name}. Shared state updated.`);
+  toast(`Case assigned to ${name}. Synchronized across chamber.`);
 }
 
-function acceptMatter(id) {
-  const c = state.cases.find(x => x.id === id);
-  if (c) c.status = 'Accepted';
-  state.notifications.unshift({
-    id: Date.now(),
-    time: 'Now',
-    tone: 'safe',
-    text: 'Assignment Accepted',
-    sub: `Ananya Rao accepted ${c?.no}.`
-  });
-  toast('Matter accepted. Senior dashboard updated.');
+async function acceptMatter(id) {
+  const userName = state.session ? state.session.name : 'Ananya Rao';
+  try {
+    await fetch(`/api/v1/cases/${id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusAction: 'accept', updatedBy: userName })
+    });
+  } catch (e) {
+    const c = state.cases.find(x => x.id === id);
+    if (c) c.status = 'Accepted';
+  }
+  toast('Matter accepted. Senior command center updated.');
 }
 
-function declineMatter(id) {
-  const c = state.cases.find(x => x.id === id);
-  if (c) c.status = 'Reassignment Requested';
-  state.notifications.unshift({
-    id: Date.now(),
-    time: 'Now',
-    tone: 'critical',
-    text: 'Reassignment Requested',
-    sub: `Ananya Rao requested reassignment for ${c?.no}.`
-  });
+async function declineMatter(id) {
+  const userName = state.session ? state.session.name : 'Ananya Rao';
+  try {
+    await fetch(`/api/v1/cases/${id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusAction: 'decline', updatedBy: userName })
+    });
+  } catch (e) {
+    const c = state.cases.find(x => x.id === id);
+    if (c) c.status = 'Reassignment Requested';
+  }
   toast('Reassignment request sent to Senior Advocate.');
 }
 
@@ -1372,122 +1370,115 @@ function confirmAction(type, id) {
   app();
 }
 
-function applyConfirmAction() {
+async function applyConfirmAction() {
   const action = state.confirmAction;
-  const c = state.cases.find(x => x.id === action.id);
-  if (!c) return;
+  const userName = state.session ? state.session.name : 'Ananya Rao';
 
-  if (action.type === 'takeover') {
-    c.status = 'Senior Takeover Requested';
-    state.notifications.unshift({
-      id: Date.now(),
-      time: 'Now',
-      tone: 'critical',
-      text: 'Takeover Requested',
-      sub: `Ananya Rao requested Senior Advocate for ${c.no}.`
+  try {
+    await fetch(`/api/v1/cases/${action.id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statusAction: action.type, updatedBy: userName })
     });
-    toast('Senior takeover request sent.');
-  } else {
-    c.status = 'Argued';
-    state.notifications.unshift({
-      id: Date.now(),
-      time: 'Now',
-      tone: 'safe',
-      text: 'Matter Marked Argued',
-      sub: `${c.no} marked as argued by Ananya Rao.`
-    });
-    state.caseHistory.unshift({
-      time: 'Just now',
-      text: `Matter ${c.no} marked as argued by Ananya Rao.`
-    });
-    toast('Matter marked as argued.');
+  } catch (e) {
+    const c = state.cases.find(x => x.id === action.id);
+    if (c) c.status = action.type === 'takeover' ? 'Senior Takeover Requested' : 'Argued';
   }
 
   state.confirmAction = null;
-  app();
+  toast(action.type === 'takeover' ? 'Emergency takeover requested.' : 'Matter marked as argued.');
 }
 
-function correctLive(e) {
-  e.preventDefault();
-  const c = state.cases.find(x => x.id === state.selectedCase);
-  c.live = Number(new FormData(e.target).get('live'));
-  c.eta = delta(c) <= 5 ? '~4 min' : delta(c) <= 15 ? '~12 min' : '~30 min';
-
-  state.notifications.unshift({
-    id: Date.now(),
-    time: 'Now',
-    tone: 'approaching',
-    text: 'Manual Correction',
-    sub: `${c.hall} live item updated to ${c.live} by Ananya Rao.`
-  });
-
-  state.modal = null;
-  toast('Live item number updated across the entire firm.');
-}
-
-function addCase(e) {
+async function submitImportCase(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  const item = Number(f.get('item'));
+  const assigneeName = f.get('assignee');
+  const fileInput = e.target.querySelector('input[type="file"]');
+  const fileName = fileInput.files[0] ? fileInput.files[0].name : '';
 
-  state.cases.push({
-    id: Date.now(),
+  const body = {
     no: f.get('no'),
     parties: f.get('parties'),
     court: f.get('court'),
-    bench: f.get('bench') || 'Justice Sharma',
     hall: f.get('hall'),
-    item,
-    live: Math.max(1, item - 18),
-    eta: '~20 min',
-    assignee: null,
-    assigneeId: null,
-    status: 'Unassigned',
-    passoverRisk: 'Low',
-    walkTime: '3 mins',
-    notes: f.get('notes') || 'Added manually'
-  });
+    item: f.get('item'),
+    bench: f.get('bench'),
+    notes: f.get('notes'),
+    assigneeName: assigneeName || null,
+    fileName
+  };
 
-  state.modal = null;
-  state.page = 'dashboard';
-  toast('Case added to live cause list.');
+  try {
+    const res = await fetch('/api/v1/cases/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast(`Case ${body.no} imported and routed to ${assigneeName || 'Unassigned'}.`);
+      go('dashboard');
+    }
+  } catch (err) {
+    state.cases.push({
+      id: Date.now(),
+      no: body.no,
+      parties: body.parties,
+      court: body.court,
+      bench: body.bench || 'Justice Sharma',
+      hall: body.hall,
+      item: parseInt(body.item),
+      live: Math.max(1, parseInt(body.item) - 18),
+      eta: '~20 min',
+      assignee: assigneeName || null,
+      status: assigneeName ? 'Awaiting Response' : 'Unassigned',
+      passoverRisk: 'Low',
+      walkTime: '3 mins',
+      notes: body.notes,
+      files: fileName ? [{ name: fileName, size: '1.5 MB' }] : []
+    });
+    toast(`Case ${body.no} imported.`);
+    go('dashboard');
+  }
 }
 
-function advance() {
-  state.cases.forEach(c => {
-    if (delta(c) > 0) c.live++;
-    if (delta(c) <= 1) playAudioAlert();
-  });
-
-  state.notifications.unshift({
-    id: Date.now(),
-    time: 'Now',
-    tone: 'approaching',
-    text: 'Live Courtroom Advance',
-    sub: 'Live item numbers advanced across active courtrooms.'
-  });
-
-  toast('Live courtroom numbers advanced.');
-}
-
-function toggleMember(i) {
-  state.team[i].available = !state.team[i].available;
-  toast(`${state.team[i].name} is now ${state.team[i].available ? 'available' : 'unavailable'}.`);
-}
-
-function submitResearch(e) {
+async function submitResearch(e) {
   e.preventDefault();
   const input = e.target.querySelector('input');
   const q = input.value;
   if (!q) return;
 
   state.researchHistory.push({ sender: 'user', text: q });
-  state.researchHistory.push({
-    sender: 'ai',
-    text: `AI Legal Research Assistant:\nAnalyzed precedents for "${q}". Cross-check citations in official law reporters before relying on them in court.`
-  });
-
   input.value = '';
+  app();
+
+  try {
+    const res = await fetch('/api/v1/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q })
+    });
+    const data = await res.json();
+    if (data.success) {
+      state.researchHistory.push({ sender: 'ai', text: data.answer });
+      app();
+    }
+  } catch (err) {
+    state.researchHistory.push({
+      sender: 'ai',
+      text: `AI Assistant: Analyzed legal precedent for "${q}". Cross-check citations in official law reporters before relying on them before the Court.`
+    });
+    app();
+  }
+}
+
+function advance() {
+  nudgeItem(state.cases[0] ? state.cases[0].id : 1, 1);
+}
+
+function toggleMember(i) {
+  state.team[i].available = !state.team[i].available;
+  toast(`${state.team[i].fullName || state.team[i].name} availability updated.`);
   app();
 }
 
@@ -1495,16 +1486,16 @@ function brief() {
   toast('AI Brief regenerated from ephemeral session materials.');
 }
 
-// Background Timer for Simulated Live Court Progression
-setInterval(() => {
-  if (state.session && state.page !== 'landing') {
-    const chance = state.simSpeed === 'demo' ? 0.85 : 0.4;
-    state.cases.forEach(c => {
-      if (delta(c) > 0 && Math.random() < chance) c.live++;
-    });
-    app();
-  }
-}, state.simSpeed === 'demo' ? 4000 : 15000);
+function toggleCourtHoursOverride() {
+  state.courtStatus.demoOverride = !state.courtStatus.demoOverride;
+  state.courtStatus.statusText = state.courtStatus.demoOverride ? 'COURT_SITTING' : 'NOT_SITTING';
+  toast(`Court operating hours override set to ${state.courtStatus.demoOverride ? 'ACTIVE' : 'OFF'}`);
+  app();
+}
 
-// Initial App Render
+// Initialize Realtime Engine
+initWebSocket();
+fetchState();
+
+// Initial Render
 app();
