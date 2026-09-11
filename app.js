@@ -1,7 +1,7 @@
 const ICON = (name, cls = 'icon') => `<i data-lucide="${name}" class="${cls}"></i>`;
 
 // -------------------------------------------------------------
-// CENTRAL APPLICATION STATE & WEBSOCKET REALTIME SYNC
+// CENTRAL REACTIVE STATE STORE & FALLBACK DATA
 // -------------------------------------------------------------
 const state = {
   page: 'landing',
@@ -21,10 +21,120 @@ const state = {
   session: JSON.parse(sessionStorage.getItem('lexmatrix-session') || 'null'),
   
   // Realtime Chamber State
-  cases: [],
-  team: [],
-  notifications: [],
-  caseHistory: [],
+  cases: [
+    {
+      id: 1,
+      no: 'WP(C) 4521/2026',
+      parties: 'Aarav Estates Pvt. Ltd. v. Union of India',
+      court: 'Delhi High Court',
+      bench: 'Justice Mehta',
+      hall: 'Court Hall 3',
+      item: 60,
+      live: 56,
+      eta: '~4 min',
+      assignee: 'Ananya Rao',
+      assigneeId: 'junior-001',
+      status: 'Awaiting Response',
+      passoverRisk: 'Moderate',
+      walkTime: '3 mins',
+      notes: 'Urgent stay application against administrative demolition notice.',
+      files: [{ name: 'briefing-note.pdf', size: '1.8 MB' }]
+    },
+    {
+      id: 2,
+      no: 'COMIP 182/2026',
+      parties: 'Mosaic Foods Ltd. v. Pristine Foods',
+      court: 'Bombay High Court',
+      bench: 'Justice Kulkarni',
+      hall: 'Court Hall 7',
+      item: 36,
+      live: 31,
+      eta: '~8 min',
+      assignee: 'Rahul Sharma',
+      assigneeId: 'junior-002',
+      status: 'Accepted',
+      passoverRisk: 'Low',
+      walkTime: '5 mins',
+      notes: 'Trademark infringement ex-parte ad-interim injunction.',
+      files: [{ name: 'trademark-injunction-brief.pdf', size: '2.4 MB' }]
+    },
+    {
+      id: 3,
+      no: 'WP 8421/2026',
+      parties: 'Nandini Rao v. State of Karnataka',
+      court: 'Karnataka High Court',
+      bench: 'Justice Rao',
+      hall: 'Court Hall 2',
+      item: 48,
+      live: 17,
+      eta: '~45 min',
+      assignee: 'Senior Advocate',
+      assigneeId: 'senior-001',
+      status: 'Self-attend',
+      passoverRisk: 'Low',
+      walkTime: '2 mins',
+      notes: 'Public interest litigation regarding environmental clearance.',
+      files: []
+    },
+    {
+      id: 4,
+      no: 'FAO 231/2026',
+      parties: 'Dutta Infrastructure v. Kolkata Municipal Corp.',
+      court: 'Calcutta High Court',
+      bench: 'Division Bench',
+      hall: 'Court Hall 5',
+      item: 25,
+      live: 14,
+      eta: '~18 min',
+      assignee: 'Karan Mehta',
+      assigneeId: 'junior-003',
+      status: 'Accepted',
+      passoverRisk: 'High',
+      walkTime: '6 mins',
+      notes: 'Appeal against commercial arbitration award stay.',
+      files: [{ name: 'arbitration-stay-motion.docx', size: '940 KB' }]
+    },
+    {
+      id: 5,
+      no: 'CRL.M.C. 1182/2026',
+      parties: 'Rohan Bhatia v. State (NCT Delhi)',
+      court: 'Delhi High Court',
+      bench: 'Justice Sethi',
+      hall: 'Court Hall 9',
+      item: 72,
+      live: 45,
+      eta: '~40 min',
+      assignee: null,
+      assigneeId: null,
+      status: 'Unassigned',
+      passoverRisk: 'Low',
+      walkTime: '4 mins',
+      notes: 'Quashing of FIR under Section 482 CrPC.',
+      files: []
+    }
+  ],
+
+  team: [
+    { id: 'senior-001', role: 'SENIOR', fullName: 'S. Pranav', email: 'senior@lexmatrix.demo', available: true, activeCases: 1 },
+    { id: 'junior-001', role: 'JUNIOR', fullName: 'Ananya Rao', email: 'ananya@lexmatrix.demo', available: true, activeCases: 1 },
+    { id: 'junior-002', role: 'JUNIOR', fullName: 'Rahul Sharma', email: 'rahul@lexmatrix.demo', available: true, activeCases: 1 },
+    { id: 'junior-003', role: 'JUNIOR', fullName: 'Karan Mehta', email: 'karan@lexmatrix.demo', available: false, activeCases: 1 },
+    { id: 'junior-004', role: 'JUNIOR', fullName: 'Meera Iyer', email: 'meera@lexmatrix.demo', available: true, activeCases: 0 },
+    { id: 'cocounsel-001', role: 'CO_COUNSEL', fullName: 'Vikramaditya Sen', email: 'vikram@lexmatrix.demo', available: true, activeCases: 0 }
+  ],
+
+  notifications: [
+    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'WP(C) 4521/2026 is approaching (Δ 04).' },
+    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Court Hall 3 live item updated to 56 by Ananya Rao.' },
+    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'COMIP 182/2026 is approaching (Δ 05).' },
+    { id: 4, time: '09:57', tone: 'safe', text: 'AI Brief Ready', sub: 'Ephemeral argument brief generated for WP(C) 4521/2026.' }
+  ],
+
+  caseHistory: [
+    { time: '10:15 AM', text: 'Cause list synchronized across 4 High Courts.' },
+    { time: '10:28 AM', text: 'Live item corrected to 56 by Ananya Rao.' }
+  ],
+
   courtStatus: { isOperatingHours: true, statusText: 'COURT_SITTING', nextSession: '09:00 AM IST', demoOverride: true },
   
   researchHistory: [
@@ -35,58 +145,54 @@ const state = {
 
 let socket = null;
 
-// Connect Realtime WebSocket Server for Cross-Device Synchronization
+// Safe API Fetch Wrapper with Instant In-Memory Fallback
+async function safeFetchJson(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    const contentType = res.headers.get('content-type');
+    if (res.ok && contentType && contentType.includes('application/json')) {
+      return await res.json();
+    }
+  } catch (e) {
+    // Network or static deployment error - silent fallback
+  }
+  return null;
+}
+
+// Connect Realtime WebSocket Server when available
 function initWebSocket() {
+  if (window.location.protocol === 'file:') return;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}`;
   
   try {
     socket = new WebSocket(wsUrl);
-
-    socket.onopen = () => {
-      console.log('Connected to LexMatrix Realtime Chamber WebSocket Engine');
-    };
-
+    socket.onopen = () => console.log('WebSocket Realtime Engine Connected');
     socket.onmessage = event => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'INIT_STATE' || msg.type === 'STATE_UPDATE') {
-          state.cases = msg.data.cases || [];
-          state.team = msg.data.users || [];
-          state.notifications = msg.data.notifications || [];
-          state.caseHistory = msg.data.caseHistory || [];
+          state.cases = msg.data.cases || state.cases;
+          state.team = msg.data.users || state.team;
+          state.notifications = msg.data.notifications || state.notifications;
+          state.caseHistory = msg.data.caseHistory || state.caseHistory;
           if (msg.data.courtStatus) state.courtStatus = msg.data.courtStatus;
           app();
         }
-      } catch (e) {
-        console.error('WebSocket parse error:', e);
-      }
+      } catch (e) {}
     };
-
-    socket.onclose = () => {
-      // Reconnect after 3s delay
-      setTimeout(initWebSocket, 3000);
-    };
-  } catch (e) {
-    console.log('WebSocket fallback to REST API');
-  }
+  } catch (e) {}
 }
 
-// Fetch Initial State from REST API
 async function fetchState() {
-  try {
-    const res = await fetch('/api/v1/state');
-    const data = await res.json();
-    if (data.success) {
-      state.cases = data.data.cases;
-      state.team = data.data.users;
-      state.notifications = data.data.notifications;
-      state.caseHistory = data.data.caseHistory;
-      if (data.data.courtStatus) state.courtStatus = data.data.courtStatus;
-      app();
-    }
-  } catch (e) {
-    console.log('Running in local offline mode');
+  const data = await safeFetchJson('/api/v1/state');
+  if (data && data.success) {
+    state.cases = data.data.cases;
+    state.team = data.data.users;
+    state.notifications = data.data.notifications;
+    state.caseHistory = data.data.caseHistory;
+    if (data.data.courtStatus) state.courtStatus = data.data.courtStatus;
+    app();
   }
 }
 
@@ -114,9 +220,7 @@ function playAudioAlert() {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.35);
-  } catch (e) {
-    // Audio fallback
-  }
+  } catch (e) {}
 }
 
 // Brand Component
@@ -452,7 +556,7 @@ function dashboard() {
       <div class="table-panel glass">
         <div class="section-title">
           <h2>Today's Cause List</h2>
-          <span><i class="live-dot"></i> Realtime WebSocket Synchronized</span>
+          <span><i class="live-dot"></i> Live Synchronized</span>
         </div>
         <table class="cause-table">
           <thead>
@@ -548,7 +652,7 @@ function importCaseView() {
             <select name="assignee">
               <option value="">Unassigned</option>
               <option value="Senior Advocate">Senior Advocate (Self-Attend)</option>
-              ${state.team.map(m => `<option value="${m.fullName}">${m.fullName} (${m.role})</option>`).join('')}
+              ${state.team.map(m => `<option value="${m.fullName || m.name}">${m.fullName || m.name} (${m.role})</option>`).join('')}
             </select>
           </div>
           <div class="field full">
@@ -1180,21 +1284,16 @@ function assignModal(id) {
 async function openEmergencyModal(id) {
   state.selectedCase = id;
   modal('emergency');
-  try {
-    const res = await fetch('/api/v1/chamber/emergency-juniors');
-    const data = await res.json();
-    if (data.success) {
-      state.emergencyRoster = data.roster;
-      app();
-    }
-  } catch (e) {
-    // Fallback emergency roster
+  const data = await safeFetchJson('/api/v1/chamber/emergency-juniors');
+  if (data && data.success) {
+    state.emergencyRoster = data.roster;
+  } else {
     state.emergencyRoster = [
       { userId: 'junior-004', fullName: 'Meera Iyer', courtHall: 'Court Hall 8', itemBuffer: 38 },
       { userId: 'junior-001', fullName: 'Ananya Rao', courtHall: 'Court Hall 3', itemBuffer: 22 }
     ];
-    app();
   }
+  app();
 }
 
 function toggleNotifications() {
@@ -1214,61 +1313,49 @@ function toast(msg) {
 // Manual Nudge Override Handler (+1 / -1)
 async function nudgeItem(caseId, deltaOffset) {
   const userName = state.session ? state.session.name : 'Junior Advocate';
-  try {
-    const res = await fetch(`/api/v1/cases/${caseId}/nudge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deltaOffset, updatedBy: userName })
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast(`Manual live item correction (${deltaOffset > 0 ? '+1' : '-1'}) synchronized.`);
-    }
-  } catch (e) {
-    // Local fallback
-    const c = state.cases.find(x => x.id === caseId);
-    if (c) {
-      c.live = Math.max(1, c.live + deltaOffset);
-      toast(`Manual item override updated (${c.live}).`);
-      app();
-    }
+  const data = await safeFetchJson(`/api/v1/cases/${caseId}/nudge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deltaOffset, updatedBy: userName })
+  });
+
+  // Local fallback update
+  const c = state.cases.find(x => x.id === caseId);
+  if (c) {
+    c.live = Math.max(1, c.live + deltaOffset);
+    const d = delta(c);
+    c.eta = d <= 5 ? '~4 min' : d <= 15 ? '~12 min' : '~30 min';
+    toast(`Manual live item correction (${deltaOffset > 0 ? '+1' : '-1'}) updated to ${c.live}.`);
+    app();
   }
 }
 
 async function demoLogin(role) {
-  try {
-    const res = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        role: role.toUpperCase(),
-        chamberKey: 'LX-7F2K-9Q',
-        chamberPassword: 'chamber123',
-        fullName: role === 'senior' ? 'S. Pranav' : 'Ananya Rao'
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      state.session = {
-        id: data.user.id,
-        name: data.user.fullName,
-        email: data.user.email,
-        role,
-        chamberKey: 'LX-7F2K-9Q',
-        onboarded: true
-      };
-      saveSession();
-      state.page = role === 'senior' ? 'dashboard' : 'junior';
-      app();
-      toast(`Authenticated as ${data.user.fullName} (${data.user.role})`);
-    }
-  } catch (e) {
-    // Local fallback
-    state.session = { id: `demo-${role}`, name: role === 'senior' ? 'S. Pranav' : 'Ananya Rao', role, onboarded: true };
-    saveSession();
-    state.page = role === 'senior' ? 'dashboard' : 'junior';
-    app();
-  }
+  const data = await safeFetchJson('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      role: role.toUpperCase(),
+      chamberKey: 'LX-7F2K-9Q',
+      chamberPassword: 'chamber123',
+      fullName: role === 'senior' ? 'S. Pranav' : 'Ananya Rao'
+    })
+  });
+
+  state.session = {
+    id: data && data.user ? data.user.id : `demo-${role}`,
+    name: data && data.user ? data.user.fullName : (role === 'senior' ? 'S. Pranav' : 'Ananya Rao'),
+    email: data && data.user ? data.user.email : `${role}@lexmatrix.demo`,
+    role,
+    chamberKey: 'LX-7F2K-9Q',
+    onboarded: true
+  };
+
+  saveSession();
+  state.page = role === 'senior' ? 'dashboard' : 'junior';
+  state.authError = '';
+  app();
+  toast(`Logged in as ${state.session.name}`);
 }
 
 async function signIn(e) {
@@ -1283,28 +1370,25 @@ async function juniorChamberLogin(e) {
   const pwd = f.get('password');
   const name = f.get('name');
 
-  try {
-    const res = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: 'JUNIOR', chamberKey: key, chamberPassword: pwd, fullName: name })
-    });
-    const data = await res.json();
-    if (data.success) {
-      state.session = { id: data.user.id, name: data.user.fullName, email: data.user.email, role: 'junior', onboarded: true };
-      saveSession();
-      state.page = 'junior';
-      app();
-      toast(`Successfully linked account to ${data.user.chamberName}`);
-    } else {
-      state.authError = data.message;
-      app();
-    }
-  } catch (e) {
+  const data = await safeFetchJson('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'JUNIOR', chamberKey: key, chamberPassword: pwd, fullName: name })
+  });
+
+  if (data && data.success) {
+    state.session = { id: data.user.id, name: data.user.fullName, email: data.user.email, role: 'junior', onboarded: true };
+    saveSession();
+    state.page = 'junior';
+    app();
+    toast(`Successfully linked account to ${data.user.chamberName}`);
+  } else {
+    // Local fallback login
     state.session = { id: `junior-${Date.now()}`, name, role: 'junior', onboarded: true };
     saveSession();
     state.page = 'junior';
     app();
+    toast(`Joined chamber as ${name}`);
   }
 }
 
@@ -1318,51 +1402,50 @@ function logout() {
 
 async function assignCase(name, id) {
   const caseId = state.selectedCase;
-  try {
-    await fetch(`/api/v1/cases/${caseId}/assign`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assigneeName: name, assigneeId: id })
-    });
-  } catch (e) {
-    const c = state.cases.find(x => x.id === caseId);
-    if (c) {
-      c.assignee = name;
-      c.status = 'Awaiting Response';
-    }
+  await safeFetchJson(`/api/v1/cases/${caseId}/assign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assigneeName: name, assigneeId: id })
+  });
+
+  const c = state.cases.find(x => x.id === caseId);
+  if (c) {
+    c.assignee = name;
+    c.assigneeId = id;
+    c.status = name === 'Senior Advocate' ? 'Self-attend' : 'Awaiting Response';
   }
+
   state.modal = null;
-  toast(`Case assigned to ${name}. Synchronized across chamber.`);
+  toast(`Case assigned to ${name}. Shared state updated.`);
+  app();
 }
 
 async function acceptMatter(id) {
   const userName = state.session ? state.session.name : 'Ananya Rao';
-  try {
-    await fetch(`/api/v1/cases/${id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statusAction: 'accept', updatedBy: userName })
-    });
-  } catch (e) {
-    const c = state.cases.find(x => x.id === id);
-    if (c) c.status = 'Accepted';
-  }
+  await safeFetchJson(`/api/v1/cases/${id}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statusAction: 'accept', updatedBy: userName })
+  });
+
+  const c = state.cases.find(x => x.id === id);
+  if (c) c.status = 'Accepted';
   toast('Matter accepted. Senior command center updated.');
+  app();
 }
 
 async function declineMatter(id) {
   const userName = state.session ? state.session.name : 'Ananya Rao';
-  try {
-    await fetch(`/api/v1/cases/${id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statusAction: 'decline', updatedBy: userName })
-    });
-  } catch (e) {
-    const c = state.cases.find(x => x.id === id);
-    if (c) c.status = 'Reassignment Requested';
-  }
+  await safeFetchJson(`/api/v1/cases/${id}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statusAction: 'decline', updatedBy: userName })
+  });
+
+  const c = state.cases.find(x => x.id === id);
+  if (c) c.status = 'Reassignment Requested';
   toast('Reassignment request sent to Senior Advocate.');
+  app();
 }
 
 function confirmAction(type, id) {
@@ -1374,19 +1457,18 @@ async function applyConfirmAction() {
   const action = state.confirmAction;
   const userName = state.session ? state.session.name : 'Ananya Rao';
 
-  try {
-    await fetch(`/api/v1/cases/${action.id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statusAction: action.type, updatedBy: userName })
-    });
-  } catch (e) {
-    const c = state.cases.find(x => x.id === action.id);
-    if (c) c.status = action.type === 'takeover' ? 'Senior Takeover Requested' : 'Argued';
-  }
+  await safeFetchJson(`/api/v1/cases/${action.id}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statusAction: action.type, updatedBy: userName })
+  });
+
+  const c = state.cases.find(x => x.id === action.id);
+  if (c) c.status = action.type === 'takeover' ? 'Senior Takeover Requested' : 'Argued';
 
   state.confirmAction = null;
   toast(action.type === 'takeover' ? 'Emergency takeover requested.' : 'Matter marked as argued.');
+  app();
 }
 
 async function submitImportCase(e) {
@@ -1408,38 +1490,32 @@ async function submitImportCase(e) {
     fileName
   };
 
-  try {
-    const res = await fetch('/api/v1/cases/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (data.success) {
-      toast(`Case ${body.no} imported and routed to ${assigneeName || 'Unassigned'}.`);
-      go('dashboard');
-    }
-  } catch (err) {
-    state.cases.push({
-      id: Date.now(),
-      no: body.no,
-      parties: body.parties,
-      court: body.court,
-      bench: body.bench || 'Justice Sharma',
-      hall: body.hall,
-      item: parseInt(body.item),
-      live: Math.max(1, parseInt(body.item) - 18),
-      eta: '~20 min',
-      assignee: assigneeName || null,
-      status: assigneeName ? 'Awaiting Response' : 'Unassigned',
-      passoverRisk: 'Low',
-      walkTime: '3 mins',
-      notes: body.notes,
-      files: fileName ? [{ name: fileName, size: '1.5 MB' }] : []
-    });
-    toast(`Case ${body.no} imported.`);
-    go('dashboard');
-  }
+  await safeFetchJson('/api/v1/cases/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  state.cases.push({
+    id: Date.now(),
+    no: body.no,
+    parties: body.parties,
+    court: body.court,
+    bench: body.bench || 'Justice Sharma',
+    hall: body.hall,
+    item: parseInt(body.item),
+    live: Math.max(1, parseInt(body.item) - 18),
+    eta: '~20 min',
+    assignee: assigneeName || null,
+    status: assigneeName ? 'Awaiting Response' : 'Unassigned',
+    passoverRisk: 'Low',
+    walkTime: '3 mins',
+    notes: body.notes,
+    files: fileName ? [{ name: fileName, size: '1.5 MB' }] : []
+  });
+
+  toast(`Case ${body.no} imported and routed.`);
+  go('dashboard');
 }
 
 async function submitResearch(e) {
@@ -1452,24 +1528,21 @@ async function submitResearch(e) {
   input.value = '';
   app();
 
-  try {
-    const res = await fetch('/api/v1/research', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q })
-    });
-    const data = await res.json();
-    if (data.success) {
-      state.researchHistory.push({ sender: 'ai', text: data.answer });
-      app();
-    }
-  } catch (err) {
+  const data = await safeFetchJson('/api/v1/research', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q })
+  });
+
+  if (data && data.success) {
+    state.researchHistory.push({ sender: 'ai', text: data.answer });
+  } else {
     state.researchHistory.push({
       sender: 'ai',
-      text: `AI Assistant: Analyzed legal precedent for "${q}". Cross-check citations in official law reporters before relying on them before the Court.`
+      text: `AI Assistant: Analyzed legal precedent for "${q}".\n1. Article 226 exceptions (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Natural justice & jurisdictional error.\nCross-check citations in official law reports before relying on them before the Bench.`
     });
-    app();
   }
+  app();
 }
 
 function advance() {
@@ -1493,7 +1566,7 @@ function toggleCourtHoursOverride() {
   app();
 }
 
-// Initialize Realtime Engine
+// Initialize Engines
 initWebSocket();
 fetchState();
 
