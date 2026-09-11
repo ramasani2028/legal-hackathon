@@ -17,17 +17,18 @@ const state = {
   simSpeed: 'normal',
   audioEnabled: true,
   emergencyRoster: [],
+  dhcDisplayBoardUrl: 'https://delhihighcourt.nic.in/app/display-board',
   
-  session: JSON.parse(sessionStorage.getItem('lexmatrix-session') || 'null'),
+  session: JSON.parse(sessionStorage.getItem('causeboard-session') || 'null'),
   
-  // Realtime Chamber State
+  // Realtime Delhi High Court Chamber State
   cases: [
     {
       id: 1,
       no: 'WP(C) 4521/2026',
-      parties: 'Aarav Estates Pvt. Ltd. v. Union of India',
+      parties: 'Aarav Estates Pvt. Ltd. v. Union of India & Anr.',
       court: 'Delhi High Court',
-      bench: 'Justice Mehta',
+      bench: 'Justice Rajiv Shakdher',
       hall: 'Court Hall 3',
       item: 60,
       live: 56,
@@ -37,15 +38,15 @@ const state = {
       status: 'Awaiting Response',
       passoverRisk: 'Moderate',
       walkTime: '3 mins',
-      notes: 'Urgent stay application against administrative demolition notice.',
+      notes: 'Urgent stay application against DDA administrative demolition notice.',
       files: [{ name: 'briefing-note.pdf', size: '1.8 MB' }]
     },
     {
       id: 2,
-      no: 'COMIP 182/2026',
-      parties: 'Mosaic Foods Ltd. v. Pristine Foods',
-      court: 'Bombay High Court',
-      bench: 'Justice Kulkarni',
+      no: 'CS(COMM) 182/2026',
+      parties: 'Mosaic Foods Ltd. v. Pristine Foods Pvt. Ltd.',
+      court: 'Delhi High Court',
+      bench: 'Justice Prathiba M. Singh',
       hall: 'Court Hall 7',
       item: 36,
       live: 31,
@@ -55,16 +56,16 @@ const state = {
       status: 'Accepted',
       passoverRisk: 'Low',
       walkTime: '5 mins',
-      notes: 'Trademark infringement ex-parte ad-interim injunction.',
+      notes: 'Trademark infringement ex-parte ad-interim injunction application.',
       files: [{ name: 'trademark-injunction-brief.pdf', size: '2.4 MB' }]
     },
     {
       id: 3,
-      no: 'WP 8421/2026',
-      parties: 'Nandini Rao v. State of Karnataka',
-      court: 'Karnataka High Court',
-      bench: 'Justice Rao',
-      hall: 'Court Hall 2',
+      no: 'W.P.(C) 8421/2026',
+      parties: 'Nandini Rao v. Govt. of NCT of Delhi',
+      court: 'Delhi High Court',
+      bench: 'Justice Manmohan & Justice Tushar Rao Gedela (DB)',
+      hall: 'Court Hall 1',
       item: 48,
       live: 17,
       eta: '~45 min',
@@ -73,15 +74,15 @@ const state = {
       status: 'Self-attend',
       passoverRisk: 'Low',
       walkTime: '2 mins',
-      notes: 'Public interest litigation regarding environmental clearance.',
+      notes: 'Public interest litigation regarding Yamuna flood plain clearance.',
       files: []
     },
     {
       id: 4,
-      no: 'FAO 231/2026',
-      parties: 'Dutta Infrastructure v. Kolkata Municipal Corp.',
-      court: 'Calcutta High Court',
-      bench: 'Division Bench',
+      no: 'FAO(OS) 231/2026',
+      parties: 'Dutta Infrastructure v. Delhi Development Authority',
+      court: 'Delhi High Court',
+      bench: 'Justice Suresh Kumar Kait',
       hall: 'Court Hall 5',
       item: 25,
       live: 14,
@@ -91,7 +92,7 @@ const state = {
       status: 'Accepted',
       passoverRisk: 'High',
       walkTime: '6 mins',
-      notes: 'Appeal against commercial arbitration award stay.',
+      notes: 'Appeal against commercial arbitration award stay order.',
       files: [{ name: 'arbitration-stay-motion.docx', size: '940 KB' }]
     },
     {
@@ -99,7 +100,7 @@ const state = {
       no: 'CRL.M.C. 1182/2026',
       parties: 'Rohan Bhatia v. State (NCT Delhi)',
       court: 'Delhi High Court',
-      bench: 'Justice Sethi',
+      bench: 'Justice Sanjeev Sachdeva',
       hall: 'Court Hall 9',
       item: 72,
       live: 45,
@@ -109,37 +110,55 @@ const state = {
       status: 'Unassigned',
       passoverRisk: 'Low',
       walkTime: '4 mins',
-      notes: 'Quashing of FIR under Section 482 CrPC.',
+      notes: 'Quashing petition under Section 482 CrPC.',
       files: []
+    },
+    {
+      id: 6,
+      no: 'BAIL APPLN. 941/2026',
+      parties: 'Kabir Malhotra v. State (NCT Delhi)',
+      court: 'Delhi High Court',
+      bench: 'Justice Navin Chawla',
+      hall: 'Court Hall 14',
+      item: 30,
+      live: 22,
+      eta: '~15 min',
+      assignee: 'Ananya Rao',
+      assigneeId: 'junior-001',
+      status: 'Accepted',
+      passoverRisk: 'Low',
+      walkTime: '3 mins',
+      notes: 'Regular bail application in economic offences matter.',
+      files: [{ name: 'bail-application-draft.pdf', size: '1.2 MB' }]
     }
   ],
 
   team: [
-    { id: 'senior-001', role: 'SENIOR', fullName: 'S. Pranav', email: 'senior@lexmatrix.demo', available: true, activeCases: 1 },
-    { id: 'junior-001', role: 'JUNIOR', fullName: 'Ananya Rao', email: 'ananya@lexmatrix.demo', available: true, activeCases: 1 },
-    { id: 'junior-002', role: 'JUNIOR', fullName: 'Rahul Sharma', email: 'rahul@lexmatrix.demo', available: true, activeCases: 1 },
-    { id: 'junior-003', role: 'JUNIOR', fullName: 'Karan Mehta', email: 'karan@lexmatrix.demo', available: false, activeCases: 1 },
-    { id: 'junior-004', role: 'JUNIOR', fullName: 'Meera Iyer', email: 'meera@lexmatrix.demo', available: true, activeCases: 0 },
-    { id: 'cocounsel-001', role: 'CO_COUNSEL', fullName: 'Vikramaditya Sen', email: 'vikram@lexmatrix.demo', available: true, activeCases: 0 }
+    { id: 'senior-001', role: 'SENIOR', fullName: 'S. Pranav', email: 'senior@causeboard.demo', available: true, activeCases: 1 },
+    { id: 'junior-001', role: 'JUNIOR', fullName: 'Ananya Rao', email: 'ananya@causeboard.demo', available: true, activeCases: 2 },
+    { id: 'junior-002', role: 'JUNIOR', fullName: 'Rahul Sharma', email: 'rahul@causeboard.demo', available: true, activeCases: 1 },
+    { id: 'junior-003', role: 'JUNIOR', fullName: 'Karan Mehta', email: 'karan@causeboard.demo', available: false, activeCases: 1 },
+    { id: 'junior-004', role: 'JUNIOR', fullName: 'Meera Iyer', email: 'meera@causeboard.demo', available: true, activeCases: 0 },
+    { id: 'cocounsel-001', role: 'CO_COUNSEL', fullName: 'Vikramaditya Sen', email: 'vikram@causeboard.demo', available: true, activeCases: 0 }
   ],
 
   notifications: [
-    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'WP(C) 4521/2026 is approaching (Δ 04).' },
-    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Court Hall 3 live item updated to 56 by Ananya Rao.' },
-    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'COMIP 182/2026 is approaching (Δ 05).' },
+    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'Delhi HC WP(C) 4521/2026 is approaching (Δ 04).' },
+    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Delhi HC Court Hall 3 live item updated to 56 by Ananya Rao.' },
+    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'Delhi HC CS(COMM) 182/2026 is approaching (Δ 05).' },
     { id: 4, time: '09:57', tone: 'safe', text: 'AI Brief Ready', sub: 'Ephemeral argument brief generated for WP(C) 4521/2026.' }
   ],
 
   caseHistory: [
-    { time: '10:15 AM', text: 'Cause list synchronized across 4 High Courts.' },
-    { time: '10:28 AM', text: 'Live item corrected to 56 by Ananya Rao.' }
+    { time: '10:15 AM', text: 'Cause list synchronized for Delhi High Court courtrooms.' },
+    { time: '10:28 AM', text: 'Live item corrected to 56 in Court Hall 3 by Ananya Rao.' }
   ],
 
   courtStatus: { isOperatingHours: true, statusText: 'COURT_SITTING', nextSession: '09:00 AM IST', demoOverride: true },
   
   researchHistory: [
-    { sender: 'user', text: 'Find authorities on maintainability of writ petition when alternative statutory remedy exists.' },
-    { sender: 'ai', text: 'Key exceptions to the alternative remedy rule under Article 226:\n1. Breach of fundamental rights (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Violation of principles of natural justice.\n3. Orders passed completely without jurisdiction.\n4. Challenge to ultra vires legislation.\nAlways cross-check citations against official law reports before citing.' }
+    { sender: 'user', text: 'Find authorities on maintainability of writ petition when alternative statutory remedy exists before Delhi High Court.' },
+    { sender: 'ai', text: 'Key exceptions to the alternative remedy rule under Article 226 before Delhi High Court:\n1. Breach of fundamental rights (Whirlpool Corp. v. Registrar of Trade Marks).\n2. Violation of principles of natural justice.\n3. Orders passed completely without jurisdiction.\n4. Challenge to ultra vires administrative actions.\nAlways verify citations against official law reports before relying on them before the Bench.' }
   ]
 };
 
@@ -187,7 +206,7 @@ const urgency = c => {
 };
 
 function saveSession() {
-  sessionStorage.setItem('lexmatrix-session', JSON.stringify(state.session));
+  sessionStorage.setItem('caseboard-session', JSON.stringify(state.session));
 }
 
 function playAudioAlert() {
@@ -206,9 +225,21 @@ function playAudioAlert() {
   } catch (e) {}
 }
 
-// Brand Component
+// Brand Component with Blended Icon & CaseBoard Title / Tagline
 function brand() {
-  return `<div class="brand"><span class="brand-mark">L</span><span><b>LEX</b>MATRIX</span></div>`;
+  return `<div class="brand" onclick="go('landing')" title="CaseBoard: Live cause-list tracking, one clash-free board">
+    <img src="assets/logo.png" alt="CaseBoard Logo" class="brand-icon">
+    <div class="brand-text">
+      <span class="brand-title">CaseBoard</span>
+      <span class="brand-tagline">Live cause-list tracking, one clash-free board</span>
+    </div>
+  </div>`;
+}
+
+// Open Official Delhi High Court Display Board Link
+function openDhcDisplayBoard() {
+  window.open(state.dhcDisplayBoardUrl, '_blank');
+  toast('Opening Official Delhi High Court Display Board...');
 }
 
 // Reusable Button Component
@@ -236,8 +267,9 @@ function topbarAuth() {
       <span class="date">Friday, 11 September 2026</span>
       <span class="system-live">
         <i class="${isSitting ? 'live-dot' : 'offline-dot'}"></i> 
-        ${isSitting ? 'HIGH COURTS SITTING (LIVE 30s FEED)' : 'COURT NOT SITTING (OPENS 09:00 AM IST)'}
+        ${isSitting ? 'DELHI HIGH COURT SITTING (LIVE FEED)' : 'DELHI HC NOT SITTING (OPENS 09:00 AM IST)'}
       </span>
+      ${button('Delhi HC Display Board ↗', 'openDhcDisplayBoard()', 'external-link', 'tiny-btn')}
     </div>
     <div class="top-actions">
       ${s.role === 'senior' && state.page === 'dashboard' ? button('Advance Live Items', 'advance()', 'fast-forward') : ''}
@@ -247,7 +279,7 @@ function topbarAuth() {
       </button>
       <div class="avatar" onclick="state.profileOpen = !state.profileOpen; app()">${initials}</div>
       ${state.profileOpen ? `<div class="profile-menu glass">
-        <button onclick="toast('Chamber: Sharma & Associates (LX-7F2K-9Q)')">Sharma & Associates</button>
+        <button onclick="toast('Chamber: Sharma & Associates (Delhi HC)')">Sharma & Associates (Delhi HC)</button>
         <button onclick="go('settings')">Account Settings</button>
         <button onclick="logout()">Log Out</button>
       </div>` : ''}
@@ -348,56 +380,240 @@ function landing() {
     <nav class="landing-nav">
       ${brand()}
       <div class="nav-links">
-        <span onclick="toast('Pilot courts: Delhi, Bombay, Karnataka, Calcutta HC')">Pilot Courts</span>
-        <span onclick="toast('Security: Ephemeral AI processing, zero cloud retention.')">Security & Privacy</span>
+        <span onclick="document.getElementById('features-section').scrollIntoView({behavior:'smooth'})">Capabilities</span>
+        <span onclick="document.getElementById('dhc-board-section').scrollIntoView({behavior:'smooth'})">Delhi HC Board</span>
+        <span onclick="document.getElementById('workflow-section').scrollIntoView({behavior:'smooth'})">Workflow</span>
+        <span onclick="document.getElementById('security-section').scrollIntoView({behavior:'smooth'})">Security & Privacy</span>
         <span onclick="go('login')">Sign In</span>
       </div>
       ${button('Enter Chamber Portal', "go('login')", 'arrow-right', 'btn-gold')}
     </nav>
-    <main class="landing-main">
-      <section class="landing-copy">
-        <div class="eyebrow">Litigation, coordinated in real time.</div>
-        <h1>One Advocate.<br>Multiple Courtrooms.<br><em>Zero Coordination Chaos.</em></h1>
-        <p>LexMatrix gives litigation teams a live command center for tracking hearings, detecting clashes, and delegating matters in real time across High Courts.</p>
-        <div class="landing-actions">
-          ${button('Enter Senior Advocate Portal', "demoLogin('senior')", 'shield', 'btn-gold')}
-          ${button('Enter Junior Associate Portal', "demoLogin('junior')", 'user-check')}
+    <main>
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <div class="landing-copy">
+          <div class="eyebrow">${ICON('shield')} Real-Time Delhi High Court Coordination Platform</div>
+          <h1>One Advocate.<br>Multiple Benches.<br><em>One Clash-Free Board.</em></h1>
+          <p>CaseBoard empowers Senior Advocates and Junior Associates appearing before the <strong>Delhi High Court</strong> with a live cause-list command center, tracking real-time hearing items, auto-calculating urgency scores, preventing passover clashes, and synchronizing chamber decisions instantly.</p>
+          <div class="landing-actions">
+            ${button('Enter Senior Advocate Portal', "demoLogin('senior')", 'shield', 'btn-gold')}
+            ${button('Enter Junior Associate Portal', "demoLogin('junior')", 'user-check')}
+            ${button('Delhi HC Display Board ↗', "openDhcDisplayBoard()", 'external-link')}
+          </div>
+        </div>
+        <div class="court-float glass">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span class="caps" style="color:var(--brown)">Delhi High Court Live Benches</span>
+            <span class="system-live" style="font-size:10px;padding:3px 8px"><i class="live-dot"></i> Live Feed</span>
+          </div>
+          <div class="mini">
+            <div>
+              <strong>DELHI HIGH COURT · HALL 3</strong>
+              <span>Justice Rajiv Shakdher · WP(C) 4521/2026</span>
+            </div>
+            <div class="delta critical">Δ 04</div>
+          </div>
+          <div class="mini">
+            <div>
+              <strong>DELHI HIGH COURT · HALL 7</strong>
+              <span>Justice Prathiba M. Singh · CS(COMM) 182/2026</span>
+            </div>
+            <div class="delta approaching">Δ 05</div>
+          </div>
+          <div class="mini">
+            <div>
+              <strong>DELHI HIGH COURT · HALL 1 (DB)</strong>
+              <span>Justice Manmohan · W.P.(C) 8421/2026</span>
+            </div>
+            <div class="delta safe">Δ 31</div>
+          </div>
+          <div class="mini">
+            <div>
+              <strong>DELHI HIGH COURT · HALL 9</strong>
+              <span>Justice Sanjeev Sachdeva · CRL.M.C. 1182/2026</span>
+            </div>
+            <div class="delta approaching">Δ 11</div>
+          </div>
         </div>
       </section>
-      <section class="court-float glass">
-        <div class="mini">
-          <div>
-            <strong>DELHI HIGH COURT</strong>
-            <span>Court Hall 3 · WP(C) 4521/2026</span>
+
+      <!-- Official Delhi High Court Display Board Showcase -->
+      <section class="section-wrap" id="dhc-board-section">
+        <div class="compare-card glass" style="background:linear-gradient(135deg, #FFFFFF 0%, var(--surface-hi) 100%);border-color:var(--brown);padding:40px">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center">
+            <div>
+              <div class="caps" style="color:var(--brown)">OFFICIAL DISPLAY BOARD INTEGRATION</div>
+              <h3 style="font-family:'Playfair Display';font-size:30px;margin:8px 0 12px;color:var(--espresso)">Official Delhi High Court Live Board Sync</h3>
+              <p style="color:var(--muted);font-size:15.5px;line-height:1.6;margin:0 0 16px;max-width:720px">
+                Directly linked with the official Delhi High Court Display Board (<code class="mono" style="background:#EFE9DF;padding:2px 6px;border-radius:4px">delhihighcourt.nic.in/app/display-board</code>). 
+                Track live item calls across Court Halls with zero delay, automated walk-time calculations between blocks, and instant junior alerts.
+              </p>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                ${button('Open Delhi HC Official Display Board ↗', "openDhcDisplayBoard()", 'external-link', 'btn-gold')}
+                ${button('View CaseBoard Live Ticker', "go('login')", 'radio')}
+              </div>
+            </div>
+            <div style="text-align:center">
+              <div class="delta critical" style="font-size:42px;line-height:1">LIVE</div>
+              <span class="caps" style="margin-top:6px;display:block">DELHI HC FEED</span>
+            </div>
           </div>
-          <div class="delta critical">Δ 04</div>
         </div>
-        <div class="mini">
-          <div>
-            <strong>BOMBAY HIGH COURT</strong>
-            <span>Court Hall 7 · COMIP 182/2026</span>
-          </div>
-          <div class="delta approaching">Δ 05</div>
+      </section>
+
+      <!-- Problem vs Solution Section -->
+      <section class="section-wrap" id="features-section">
+        <div class="section-head">
+          <div class="eyebrow">Why CaseBoard?</div>
+          <h2>The Delhi High Court Coordination Dilemma</h2>
+          <p>Senior Advocates manage dozens of simultaneous matters across different court blocks at Sher Shah Road. Without real-time synchronization, passovers and missed arguments threaten client outcomes.</p>
         </div>
-        <div class="mini">
-          <div>
-            <strong>KARNATAKA HIGH COURT</strong>
-            <span>Court Hall 2 · WP 8421/2026</span>
+        <div class="comparison-grid">
+          <div class="compare-card old">
+            <div class="caps" style="color:var(--red)">Traditional Corridor Chaos</div>
+            <h3>WhatsApp Calls & Sudden Passovers</h3>
+            <div class="compare-list">
+              <div>${ICON('x', 'icon')} <span>Junior associates sprinting across court blocks to relay item numbers verbally.</span></div>
+              <div>${ICON('x', 'icon')} <span>Uncertainty over judge speed leads to sudden bench passovers.</span></div>
+              <div>${ICON('x', 'icon')} <span>Senior Advocates stranded in one courtroom while matters burn in another.</span></div>
+              <div>${ICON('x', 'icon')} <span>Static cause lists lack dynamic time estimates or block-to-block walk-time calculations.</span></div>
+            </div>
           </div>
-          <div class="delta safe">Δ 31</div>
+          <div class="compare-card new">
+            <div class="caps" style="color:var(--green)">The CaseBoard Command Desk</div>
+            <h3>Live Synchronized Courtroom Intelligence</h3>
+            <div class="compare-list">
+              <div>${ICON('check', 'icon')} <span>Automated item distance calculations with live sound and visual warnings.</span></div>
+              <div>${ICON('check', 'icon')} <span>Instant 1-tap emergency takeover requests and junior passover dispatches.</span></div>
+              <div>${ICON('check', 'icon')} <span>Shared Senior and Junior WebSocket state sync across mobile and desktop.</span></div>
+              <div>${ICON('check', 'icon')} <span>On-demand AI Argument Briefs generated from ephemeral case materials.</span></div>
+            </div>
+          </div>
         </div>
-        <div class="mini">
-          <div>
-            <strong>CALCUTTA HIGH COURT</strong>
-            <span>Court Hall 5 · FAO 231/2026</span>
+      </section>
+
+      <!-- 4-Step Interactive Workflow Section -->
+      <section class="section-wrap" id="workflow-section">
+        <div class="section-head">
+          <div class="eyebrow">Operational Mechanics</div>
+          <h2>4 Steps to Flawless Delhi HC Presence</h2>
+          <p>Designed specifically for the fast-paced reality of Delhi High Court litigation.</p>
+        </div>
+        <div class="workflow-grid">
+          <div class="step-card">
+            <div class="step-num">01 / SETUP</div>
+            <h4>Chamber Key & Cause List Sync</h4>
+            <p>Senior creates a secure team key. Juniors join seamlessly and import daily Delhi HC cause lists via PDF or web form.</p>
           </div>
-          <div class="delta approaching">Δ 11</div>
+          <div class="step-card">
+            <div class="step-num">02 / TRACKING</div>
+            <h4>Live Bench Item Monitoring</h4>
+            <p>Real-time feeds track item progress across Delhi High Court Court Halls continuously during operating hours (09:00 AM to 04:00 PM IST).</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">03 / CALCULATION</div>
+            <h4>Dynamic Urgency Engine</h4>
+            <p>Calculates remaining items, walk times between court blocks, and triggers tiered amber and red risk alerts automatically.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">04 / DISPATCH</div>
+            <h4>1-Tap Action & AI Briefs</h4>
+            <p>Senior dispatches junior counsel, requests passovers, or accesses instant AI precedents right in the courtroom.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dual Role Feature Showcase Section -->
+      <section class="section-wrap">
+        <div class="section-head">
+          <div class="eyebrow">Bespoke Views</div>
+          <h2>Architected for Both Senior & Junior Workflows</h2>
+          <p>Every role gets the exact tools required to make rapid, informed decisions under courtroom pressure.</p>
+        </div>
+        <div class="comparison-grid">
+          <div class="compare-card glass" style="background:#FFFFFF">
+            <div class="caps">Senior Advocate Mode</div>
+            <h3>Master Command Center</h3>
+            <div class="compare-list" style="margin-top:14px">
+              <div>${ICON('shield', 'icon')} <span>Single-screen overview of all active Delhi High Court halls and junior assignments.</span></div>
+              <div>${ICON('sliders', 'icon')} <span>Manual item nudge (+1 / -1) controls for instantaneous real-time corrections.</span></div>
+              <div>${ICON('alert-triangle', 'icon')} <span>Automated clash detection alerts when multiple critical matters converge.</span></div>
+            </div>
+            <div style="margin-top:20px">
+              ${button('Demo Senior Portal', "demoLogin('senior')", 'arrow-right', 'btn-gold')}
+            </div>
+          </div>
+          <div class="compare-card glass" style="background:#FFFFFF">
+            <div class="caps">Junior Associate Mode</div>
+            <h3>Courtroom Mobile Companion</h3>
+            <div class="compare-list" style="margin-top:14px">
+              <div>${ICON('user-check', 'icon')} <span>Instant status response buttons (Accept, Request Passover, Seek Reassignment).</span></div>
+              <div>${ICON('file-text', 'icon')} <span>Direct access to uploaded briefing notes, stay orders, and precedents.</span></div>
+              <div>${ICON('sparkles', 'icon')} <span>Integrated AI Legal Research Assistant for quick citation verification.</span></div>
+            </div>
+            <div style="margin-top:20px">
+              ${button('Demo Junior Portal', "demoLogin('junior')", 'arrow-right')}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Security Guarantee Section -->
+      <section class="section-wrap" id="security-section">
+        <div class="compare-card glass" style="background:var(--espresso);color:#F8F5F0;border:none">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center">
+            <div>
+              <div class="caps" style="color:var(--gold-hi)">PRIVACY & COMPLIANCE GUARANTEE</div>
+              <h3 style="color:#FFFFFF;font-size:28px;margin:10px 0 14px">Client Privilege & Ephemeral AI Memory</h3>
+              <p style="color:#D6CCC0;font-size:15px;line-height:1.6;margin:0">CaseBoard processes all briefing notes, cause lists, and AI research requests in transient ephemeral memory. No client confidences or case strategies are retained in external AI training datasets.</p>
+            </div>
+            <div>
+              ${button('Launch Demo Environment', "go('login')", 'zap', 'btn-gold')}
+            </div>
+          </div>
         </div>
       </section>
     </main>
+
+    <!-- Rich Editorial Footer -->
     <footer class="landing-foot">
-      <span>LEXMATRIX LITIGATION OPERATIONS CONSOLE</span>
-      <span><i class="live-dot"></i> ALL 4 PILOT COURTS SYNCHRONIZED</span>
+      <div class="foot-main">
+        <div class="foot-brand">
+          ${brand()}
+          <p style="margin-top:14px">Live cause-list tracking, one clash-free board for high-stakes litigation chambers appearing before the Delhi High Court.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Delhi High Court Links</h4>
+          <ul>
+            <li onclick="openDhcDisplayBoard()">Official Display Board ↗</li>
+            <li onclick="toast('Delhi High Court · Main Building Benches')">Main Building Halls (1-12)</li>
+            <li onclick="toast('Delhi High Court · Extension Block Benches')">Extension Block Halls (13-28)</li>
+            <li onclick="toast('Delhi High Court · Single Benches & DBs')">Division Benches</li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Core Workflows</h4>
+          <ul>
+            <li onclick="demoLogin('senior')">Senior Command Center</li>
+            <li onclick="demoLogin('junior')">Junior Companion Desk</li>
+            <li onclick="go('login')">Chamber Sign In</li>
+            <li onclick="toast('Delhi High Court Cause List Parser Active.')">Cause List Parser</li>
+          </ul>
+        </div>
+        <div class="foot-col">
+          <h4>Security & Tech</h4>
+          <ul>
+            <li>Ephemeral Memory Model</li>
+            <li>WebSocket Chamber Sync</li>
+            <li>Zero Cloud Data Retention</li>
+            <li>Client Privilege Firewall</li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 CASEBOARD LITIGATION CONSOLE. ALL RIGHTS RESERVED.</span>
+        <span><i class="live-dot"></i> DELHI HIGH COURT ENGINE ACTIVE</span>
+      </div>
     </footer>
   </div>`;
 }
@@ -408,15 +624,15 @@ function landing() {
 function authStory() {
   return `<section class="auth-story">
     ${brand()}
-    <div>
-      <div class="eyebrow">Litigation Command Platform</div>
-      <h1>Every courtroom.<br>One clear decision.</h1>
-      <p>Coordinate your litigation firm across live High Court halls without missing the matter about to be called.</p>
+    <div style="margin-top:20px">
+      <div class="eyebrow">Delhi High Court Litigation Platform</div>
+      <h1>Every courtroom.<br>One clash-free board.</h1>
+      <p>Coordinate your litigation firm across Delhi High Court halls without missing the matter about to be called.</p>
     </div>
     <div class="auth-signal glass">
       <div><span>DELHI HC · Court Hall 3</span><strong class="critical mono">Δ 04</strong></div>
-      <div><span>BOMBAY HC · Court Hall 7</span><strong class="approaching mono">Δ 05</strong></div>
-      <div><span>KARNATAKA HC · Court Hall 2</span><strong class="safe mono">Δ 31</strong></div>
+      <div><span>DELHI HC · Court Hall 7</span><strong class="approaching mono">Δ 05</strong></div>
+      <div><span>DELHI HC · Court Hall 1</span><strong class="safe mono">Δ 31</strong></div>
     </div>
   </section>`;
 }
@@ -428,7 +644,7 @@ function authShell(content) {
 function login() {
   return authShell(`<section class="auth-card glass">
     <div class="eyebrow">Chamber Authentication</div>
-    <h1>Sign in to LexMatrix</h1>
+    <h1>Sign in to CaseBoard</h1>
     <p>Enter your Senior Master Login or Junior Chamber Credentials.</p>
     
     <div style="display:flex;gap:8px;margin-bottom:18px">
@@ -440,7 +656,7 @@ function login() {
       <form onsubmit="signIn(event)">
         <div class="field">
           <label>Senior Advocate Email</label>
-          <input name="email" type="email" required value="senior@lexmatrix.demo" placeholder="name@firm.com">
+          <input name="email" type="email" required value="senior@caseboard.demo" placeholder="name@firm.com">
         </div>
         <div class="field" style="margin-top:12px">
           <label>Password</label>
@@ -520,7 +736,7 @@ function dashboard() {
       <div>
         <div class="eyebrow">Senior Advocate Command Center</div>
         <h1>Good morning, S. Pranav</h1>
-        <p>Synchronized across Delhi, Bombay, Karnataka, and Calcutta High Courts.</p>
+        <p>Synchronized for Delhi High Court Courtrooms.</p>
       </div>
       <div>
         ${button('+ Import Case Module', "go('importCase')", 'file-plus')}
@@ -1088,17 +1304,14 @@ function modalView() {
           <button class="close" onclick="closeModal()">${ICON('x')}</button>
         </div>
         <p style="font-size:13px;color:var(--muted);line-height:1.6">
-          LexMatrix respects government security protocols. We <strong>never collect court credentials or automate CAPTCHAs</strong>. 
-          Complete CAPTCHA verification on the official High Court site, then return to import your cause list.
+          CaseBoard respects government security protocols. We <strong>never collect court credentials or automate CAPTCHAs</strong>. 
+          Complete CAPTCHA verification on the official Delhi High Court site, then return to import your cause list.
         </p>
         <div style="display:grid;gap:10px;margin-top:14px">
           <div class="field">
             <label>Select Pilot High Court</label>
             <select>
-              <option>Delhi High Court</option>
-              <option>Bombay High Court</option>
-              <option>Karnataka High Court</option>
-              <option>Calcutta High Court</option>
+              <option>Delhi High Court (Live Sync)</option>
             </select>
           </div>
         </div>
@@ -1319,7 +1532,7 @@ function demoLogin(role) {
   state.session = {
     id: `demo-${role}`,
     name: role === 'senior' ? 'S. Pranav' : 'Ananya Rao',
-    email: `${role}@lexmatrix.demo`,
+    email: `${role}@caseboard.demo`,
     role,
     chamberKey: 'LX-7F2K-9Q',
     onboarded: true
@@ -1363,7 +1576,7 @@ function juniorChamberLogin(e) {
 }
 
 function logout() {
-  sessionStorage.removeItem('lexmatrix-session');
+  sessionStorage.removeItem('caseboard-session');
   state.session = null;
   state.page = 'landing';
   state.profileOpen = false;

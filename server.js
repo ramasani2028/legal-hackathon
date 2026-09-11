@@ -27,21 +27,21 @@ const db = {
   },
   
   users: [
-    { id: 'senior-001', role: 'SENIOR', chamberId: 'team-sharma', fullName: 'S. Pranav', email: 'senior@lexmatrix.demo' },
-    { id: 'junior-001', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Ananya Rao', email: 'ananya@lexmatrix.demo', available: true, activeCases: 1 },
-    { id: 'junior-002', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Rahul Sharma', email: 'rahul@lexmatrix.demo', available: true, activeCases: 1 },
-    { id: 'junior-003', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Karan Mehta', email: 'karan@lexmatrix.demo', available: false, activeCases: 1 },
-    { id: 'junior-004', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Meera Iyer', email: 'meera@lexmatrix.demo', available: true, activeCases: 0 },
-    { id: 'cocounsel-001', role: 'CO_COUNSEL', chamberId: 'team-sharma', fullName: 'Vikramaditya Sen', email: 'vikram@lexmatrix.demo', available: true, activeCases: 0 }
+    { id: 'senior-001', role: 'SENIOR', chamberId: 'team-sharma', fullName: 'S. Pranav', email: 'senior@caseboard.demo' },
+    { id: 'junior-001', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Ananya Rao', email: 'ananya@caseboard.demo', available: true, activeCases: 1 },
+    { id: 'junior-002', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Rahul Sharma', email: 'rahul@caseboard.demo', available: true, activeCases: 1 },
+    { id: 'junior-003', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Karan Mehta', email: 'karan@caseboard.demo', available: false, activeCases: 1 },
+    { id: 'junior-004', role: 'JUNIOR', chamberId: 'team-sharma', fullName: 'Meera Iyer', email: 'meera@caseboard.demo', available: true, activeCases: 0 },
+    { id: 'cocounsel-001', role: 'CO_COUNSEL', chamberId: 'team-sharma', fullName: 'Vikramaditya Sen', email: 'vikram@caseboard.demo', available: true, activeCases: 0 }
   ],
 
   cases: [
     {
       id: 1,
       no: 'WP(C) 4521/2026',
-      parties: 'Aarav Estates Pvt. Ltd. v. Union of India',
+      parties: 'Aarav Estates Pvt. Ltd. v. Union of India & Anr.',
       court: 'Delhi High Court',
-      bench: 'Justice Mehta',
+      bench: 'Justice Rajiv Shakdher',
       hall: 'Court Hall 3',
       item: 60,
       live: 56,
@@ -51,15 +51,15 @@ const db = {
       status: 'Awaiting Response',
       passoverRisk: 'Moderate',
       walkTime: '3 mins',
-      notes: 'Urgent stay application against administrative demolition notice.',
+      notes: 'Urgent stay application against DDA administrative demolition notice.',
       files: [{ name: 'briefing-note.pdf', size: '1.8 MB' }]
     },
     {
       id: 2,
-      no: 'COMIP 182/2026',
-      parties: 'Mosaic Foods Ltd. v. Pristine Foods',
-      court: 'Bombay High Court',
-      bench: 'Justice Kulkarni',
+      no: 'CS(COMM) 182/2026',
+      parties: 'Mosaic Foods Ltd. v. Pristine Foods Pvt. Ltd.',
+      court: 'Delhi High Court',
+      bench: 'Justice Prathiba M. Singh',
       hall: 'Court Hall 7',
       item: 36,
       live: 31,
@@ -69,16 +69,16 @@ const db = {
       status: 'Accepted',
       passoverRisk: 'Low',
       walkTime: '5 mins',
-      notes: 'Trademark infringement ex-parte ad-interim injunction.',
+      notes: 'Trademark infringement ex-parte ad-interim injunction application.',
       files: [{ name: 'trademark-injunction-brief.pdf', size: '2.4 MB' }]
     },
     {
       id: 3,
-      no: 'WP 8421/2026',
-      parties: 'Nandini Rao v. State of Karnataka',
-      court: 'Karnataka High Court',
-      bench: 'Justice Rao',
-      hall: 'Court Hall 2',
+      no: 'W.P.(C) 8421/2026',
+      parties: 'Nandini Rao v. Govt. of NCT of Delhi',
+      court: 'Delhi High Court',
+      bench: 'Justice Manmohan & Justice Tushar Rao Gedela (DB)',
+      hall: 'Court Hall 1',
       item: 48,
       live: 17,
       eta: '~45 min',
@@ -87,15 +87,15 @@ const db = {
       status: 'Self-attend',
       passoverRisk: 'Low',
       walkTime: '2 mins',
-      notes: 'Public interest litigation regarding environmental clearance.',
+      notes: 'Public interest litigation regarding Yamuna flood plain clearance.',
       files: []
     },
     {
       id: 4,
-      no: 'FAO 231/2026',
-      parties: 'Dutta Infrastructure v. Kolkata Municipal Corp.',
-      court: 'Calcutta High Court',
-      bench: 'Division Bench',
+      no: 'FAO(OS) 231/2026',
+      parties: 'Dutta Infrastructure v. Delhi Development Authority',
+      court: 'Delhi High Court',
+      bench: 'Justice Suresh Kumar Kait',
       hall: 'Court Hall 5',
       item: 25,
       live: 14,
@@ -105,7 +105,7 @@ const db = {
       status: 'Accepted',
       passoverRisk: 'High',
       walkTime: '6 mins',
-      notes: 'Appeal against commercial arbitration award stay.',
+      notes: 'Appeal against commercial arbitration award stay order.',
       files: [{ name: 'arbitration-stay-motion.docx', size: '940 KB' }]
     },
     {
@@ -113,7 +113,7 @@ const db = {
       no: 'CRL.M.C. 1182/2026',
       parties: 'Rohan Bhatia v. State (NCT Delhi)',
       court: 'Delhi High Court',
-      bench: 'Justice Sethi',
+      bench: 'Justice Sanjeev Sachdeva',
       hall: 'Court Hall 9',
       item: 72,
       live: 45,
@@ -123,21 +123,39 @@ const db = {
       status: 'Unassigned',
       passoverRisk: 'Low',
       walkTime: '4 mins',
-      notes: 'Quashing of FIR under Section 482 CrPC.',
+      notes: 'Quashing petition under Section 482 CrPC.',
       files: []
+    },
+    {
+      id: 6,
+      no: 'BAIL APPLN. 941/2026',
+      parties: 'Kabir Malhotra v. State (NCT Delhi)',
+      court: 'Delhi High Court',
+      bench: 'Justice Navin Chawla',
+      hall: 'Court Hall 14',
+      item: 30,
+      live: 22,
+      eta: '~15 min',
+      assignee: 'Ananya Rao',
+      assigneeId: 'junior-001',
+      status: 'Accepted',
+      passoverRisk: 'Low',
+      walkTime: '3 mins',
+      notes: 'Regular bail application in economic offences matter.',
+      files: [{ name: 'bail-application-draft.pdf', size: '1.2 MB' }]
     }
   ],
 
   notifications: [
-    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'WP(C) 4521/2026 is approaching (Δ 04).' },
-    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Court Hall 3 live item updated to 56 by Ananya Rao.' },
-    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'COMIP 182/2026 is approaching (Δ 05).' },
+    { id: 1, time: '10:31', tone: 'critical', text: '5-minute warning', sub: 'Delhi HC WP(C) 4521/2026 is approaching (Δ 04).' },
+    { id: 2, time: '10:28', tone: 'approaching', text: 'Manual correction received', sub: 'Delhi HC Court Hall 3 live item updated to 56 by Ananya Rao.' },
+    { id: 3, time: '10:21', tone: 'approaching', text: '15-minute warning', sub: 'Delhi HC CS(COMM) 182/2026 is approaching (Δ 05).' },
     { id: 4, time: '09:57', tone: 'safe', text: 'AI Brief Ready', sub: 'Ephemeral argument brief generated for WP(C) 4521/2026.' }
   ],
 
   caseHistory: [
-    { time: '10:15 AM', text: 'Cause list synchronized across 4 High Courts.' },
-    { time: '10:28 AM', text: 'Live item corrected to 56 by Ananya Rao.' }
+    { time: '10:15 AM', text: 'Cause list synchronized for Delhi High Court courtrooms.' },
+    { time: '10:28 AM', text: 'Live item corrected to 56 in Court Hall 3 by Ananya Rao.' }
   ],
 
   courtStatus: {
@@ -250,7 +268,7 @@ app.post('/api/v1/auth/login', (req, res) => {
         chamberId: chamber.id,
         chamberName: chamber.name,
         fullName: chamber.seniorName,
-        email: email || chamber.seniorName.toLowerCase().replace(' ', '') + '@lexmatrix.demo'
+        email: email || chamber.seniorName.toLowerCase().replace(' ', '') + '@caseboard.demo'
       }
     });
   }
@@ -263,7 +281,7 @@ app.post('/api/v1/auth/login', (req, res) => {
       role: role === 'CO_COUNSEL' ? 'CO_COUNSEL' : 'JUNIOR',
       chamberId: chamber.id,
       fullName: fullName || 'Junior Associate',
-      email: `${(fullName || 'junior').toLowerCase().replace(/\s+/g, '')}@lexmatrix.demo`,
+      email: `${(fullName || 'junior').toLowerCase().replace(/\s+/g, '')}@caseboard.demo`,
       available: true,
       activeCases: 0
     };
@@ -523,5 +541,5 @@ app.get('*', (req, res) => {
 // Start Server
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
-  console.log(`LexMatrix Chamber Realtime Server running on port ${PORT}`);
+  console.log(`CaseBoard Chamber Realtime Server running on port ${PORT}`);
 });

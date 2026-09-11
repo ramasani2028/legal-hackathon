@@ -1,7 +1,7 @@
 {
   "name": "legal-hackathon",
   "version": "2.0.0",
-  "description": "LexMatrix Courtroom Coordination Platform - Realtime Chamber Server",
+  "description": "CaseBoard Courtroom Coordination Platform - Realtime Chamber Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
